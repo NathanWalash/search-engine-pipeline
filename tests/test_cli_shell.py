@@ -23,6 +23,12 @@ def test_handle_build_returns_placeholder_message() -> None:
     assert should_exit is False
 
 
+def test_handle_help_returns_help_text() -> None:
+    message, should_exit = handle_command("help")
+    assert "Available commands:" in message
+    assert should_exit is False
+
+
 def test_handle_load_returns_placeholder_message() -> None:
     message, should_exit = handle_command("load")
     assert message == "Load requested. Storage layer not implemented yet."
@@ -42,6 +48,12 @@ def test_handle_print_rejects_multiple_words() -> None:
 def test_handle_find_rejects_empty_query() -> None:
     with pytest.raises(ValueError, match="query cannot be empty"):
         handle_command("find")
+
+
+def test_handle_print_accepts_one_word() -> None:
+    message, should_exit = handle_command("print nonsense")
+    assert message == "Print requested for 'nonsense'."
+    assert should_exit is False
 
 
 def test_handle_find_accepts_multiword_query() -> None:
