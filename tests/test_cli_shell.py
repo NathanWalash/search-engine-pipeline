@@ -189,6 +189,33 @@ def test_handle_build_with_save_function_reports_path() -> None:
     assert context.index is built_index
 
 
+def test_handle_build_wraps_save_storage_error() -> None:
+    context = main_module.CLIContext()
+    built_index = create_inverted_index()
+
+    def fake_build_pipeline():
+        return BuildResult(
+            index=built_index,
+            pages=[],
+            summary=BuildSummary(
+                pages_crawled=0,
+                unique_terms=0,
+                token_count=0,
+                duration_seconds=0.1,
+            ),
+        )
+
+    with pytest.raises(ValueError, match="Unable to save index file"):
+        handle_command(
+            "build",
+            context=context,
+            build_pipeline=fake_build_pipeline,
+            save_index_fn=lambda index: (_ for _ in ()).throw(
+                StorageError("Unable to save index file: data/index.json")
+            ),
+        )
+
+
 def test_handle_load_sets_context_index() -> None:
     context = main_module.CLIContext()
     loaded_index = create_inverted_index()
@@ -215,3 +242,16 @@ def test_handle_load_wraps_storage_error() -> None:
                 StorageError("Index file not found: data/index.json")
             ),
         )
+
+
+def test_handle_find_no_matches_reports_empty_results() -> None:
+    context = main_module.CLIContext(index=create_inverted_index())
+    context.index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["truth"],
+    )
+
+    message, should_exit = handle_command("find banana", context=context)
+    assert should_exit is False
+    assert message == "No matching pages found."

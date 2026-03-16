@@ -53,10 +53,8 @@ def _ensure_no_arguments(command: str, args: Sequence[str]) -> None:
         raise ValueError(f"Error: '{command}' does not take arguments")
 
 
-def _require_loaded_index(context: Optional[CLIContext]) -> InvertedIndex:
+def _require_loaded_index(context: CLIContext) -> InvertedIndex:
     """Return the loaded index from context or raise a user-facing error."""
-    if context is None:
-        raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
     if context.index is None:
         raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
     return context.index

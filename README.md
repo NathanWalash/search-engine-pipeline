@@ -6,6 +6,18 @@ Coursework project for building a command-line search engine over `https://quote
 
 The tool crawls pages from the target website, builds an inverted index, stores the index on disk, and lets you query it from a command-line shell.
 
+## Status
+
+Core roadmap phases (1-10) are implemented, including:
+
+- crawl/build pipeline
+- index save/load
+- `print` and `find` query commands
+- integration and edge-case tests
+- CI-based automated test runs
+
+Current collaboration base branch is `feature/project-scaffold`.
+
 ## Installation
 
 ### Prerequisites
