@@ -1,6 +1,7 @@
 """Utilities for extracting plain text from HTML documents."""
 
 from html.parser import HTMLParser
+import re
 
 
 class _TextExtractor(HTMLParser):
@@ -49,3 +50,13 @@ def extract_text(html: str) -> str:
         for tag in soup.find_all(tag_name):
             tag.decompose()
     return soup.get_text(separator=" ", strip=True)
+
+
+def tokenize(text: str) -> list[str]:
+    """Split text into lowercase word tokens with punctuation removed."""
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
+def extract_tokens_from_html(html: str) -> list[str]:
+    """Extract and tokenize visible text content from raw HTML."""
+    return tokenize(extract_text(html))
