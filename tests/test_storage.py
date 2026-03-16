@@ -111,3 +111,242 @@ def test_load_with_non_object_terms_raises_storage_error() -> None:
             load_index(path=invalid)
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_rejects_non_integer_meta_fields() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps(
+                {
+                    "meta": {"page_count": "abc", "token_count": 1},
+                    "documents": {},
+                    "terms": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(StorageError, match="meta.page_count"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_rejects_non_object_document_payload() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps(
+                {
+                    "meta": {"page_count": 1, "token_count": 1},
+                    "documents": {"doc1": "bad"},
+                    "terms": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(StorageError, match="payload must contain an object"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_rejects_document_missing_required_fields() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps(
+                {
+                    "meta": {"page_count": 1, "token_count": 1},
+                    "documents": {"doc1": {"url": "https://quotes.toscrape.com/"}},
+                    "terms": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(StorageError, match="missing required fields"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_rejects_non_string_document_url() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps(
+                {
+                    "meta": {"page_count": 1, "token_count": 1},
+                    "documents": {"doc1": {"url": 123, "length": 1}},
+                    "terms": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(StorageError, match="url must be a string"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_rejects_non_object_term_payload() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps(
+                {
+                    "meta": {"page_count": 1, "token_count": 1},
+                    "documents": {"doc1": {"url": "https://quotes.toscrape.com/", "length": 1}},
+                    "terms": {"truth": "bad"},
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(StorageError, match="Term 'truth' payload must contain an object"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_rejects_non_object_postings() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps(
+                {
+                    "meta": {"page_count": 1, "token_count": 1},
+                    "documents": {"doc1": {"url": "https://quotes.toscrape.com/", "length": 1}},
+                    "terms": {"truth": {"document_frequency": 1, "postings": []}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(StorageError, match="postings must contain an object"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_rejects_non_object_posting_payload() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps(
+                {
+                    "meta": {"page_count": 1, "token_count": 1},
+                    "documents": {"doc1": {"url": "https://quotes.toscrape.com/", "length": 1}},
+                    "terms": {
+                        "truth": {
+                            "document_frequency": 1,
+                            "postings": {"doc1": "bad"},
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(StorageError, match="payload must contain an object"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_rejects_non_list_positions() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps(
+                {
+                    "meta": {"page_count": 1, "token_count": 1},
+                    "documents": {"doc1": {"url": "https://quotes.toscrape.com/", "length": 1}},
+                    "terms": {
+                        "truth": {
+                            "document_frequency": 1,
+                            "postings": {
+                                "doc1": {
+                                    "term_frequency": 1,
+                                    "positions": "bad",
+                                }
+                            },
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(StorageError, match="positions must be a list"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_rejects_non_integer_position_values() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps(
+                {
+                    "meta": {"page_count": 1, "token_count": 1},
+                    "documents": {"doc1": {"url": "https://quotes.toscrape.com/", "length": 1}},
+                    "terms": {
+                        "truth": {
+                            "document_frequency": 1,
+                            "postings": {
+                                "doc1": {
+                                    "term_frequency": 1,
+                                    "positions": [0, "x"],
+                                }
+                            },
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(StorageError, match="positions\\[1\\]"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_save_wraps_oserror(monkeypatch) -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["truth"],
+    )
+
+    def raise_oserror(self, data, encoding="utf-8"):  # type: ignore[no-untyped-def]
+        del data, encoding
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "write_text", raise_oserror)
+    with pytest.raises(StorageError, match="Unable to save index file"):
+        save_index(index, path="data/index.json")
+
+
+def test_load_wraps_read_oserror(monkeypatch) -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        source = temp_dir / "index.json"
+        source.write_text("{}", encoding="utf-8")
+
+        def raise_oserror(self, encoding="utf-8"):  # type: ignore[no-untyped-def]
+            del encoding
+            raise OSError("read failure")
+
+        monkeypatch.setattr(Path, "read_text", raise_oserror)
+        with pytest.raises(StorageError, match="Unable to read index file"):
+            load_index(path=source)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
