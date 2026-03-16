@@ -91,6 +91,7 @@ search> print good
 ### `find <query>`
 
 Run case-insensitive AND search across all query terms.
+Matched documents are ranked by a TF-IDF style relevance score.
 
 ```text
 search> find good friends
