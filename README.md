@@ -92,9 +92,11 @@ search> print good
 
 Run case-insensitive AND search across all query terms.
 Matched documents are ranked by a TF-IDF style relevance score.
+Quoted phrases are supported using positional matching.
 
 ```text
 search> find good friends
+search> find "good friends"
 ```
 
 ## Testing
