@@ -6,6 +6,12 @@ from typing import Callable, Optional, Sequence
 
 from src.build_pipeline import BuildResult, format_build_summary, run_build_pipeline
 from src.indexer import InvertedIndex
+from src.search import (
+    find_and_match_documents,
+    format_find_results,
+    format_term_lookup,
+    lookup_term,
+)
 from src.storage import DEFAULT_INDEX_PATH, StorageError, load_index, save_index
 
 PROMPT = "search> "
@@ -45,6 +51,15 @@ def parse_command(raw_command: str) -> tuple[str, list[str]]:
 def _ensure_no_arguments(command: str, args: Sequence[str]) -> None:
     if args:
         raise ValueError(f"Error: '{command}' does not take arguments")
+
+
+def _require_loaded_index(context: Optional[CLIContext]) -> InvertedIndex:
+    """Return the loaded index from context or raise a user-facing error."""
+    if context is None:
+        raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
+    if context.index is None:
+        raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
+    return context.index
 
 
 def dispatch_command(
@@ -102,13 +117,27 @@ def dispatch_command(
             raise ValueError("Error: word required")
         if len(args) > 1:
             raise ValueError("Error: print expects exactly one word")
-        return f"Print requested for '{args[0]}'.", False
+        if context is None:
+            return f"Print requested for '{args[0]}'.", False
+        index = _require_loaded_index(context)
+
+        lookup = lookup_term(index, args[0])
+        if lookup is None:
+            return "Word not found in index", False
+        return format_term_lookup(lookup), False
 
     if command == "find":
         if not args:
             raise ValueError("Error: query cannot be empty")
-        query = " ".join(args)
-        return f"Find requested for '{query}'.", False
+        if context is None:
+            query = " ".join(args)
+            return f"Find requested for '{query}'.", False
+        index = _require_loaded_index(context)
+
+        matches = find_and_match_documents(index, args)
+        if not matches:
+            return "No matching pages found.", False
+        return format_find_results(args, matches), False
 
     raise ValueError(
         f"Error: unknown command '{command}'. Type 'help' for usage."
