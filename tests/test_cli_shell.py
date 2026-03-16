@@ -6,6 +6,7 @@ import src.main as main_module
 from src.build_pipeline import BuildResult, BuildSummary
 from src.indexer import create_inverted_index
 from src.main import handle_command, parse_command
+from src.storage import StorageError
 
 
 def test_parse_command_normalises_case() -> None:
@@ -159,3 +160,58 @@ def test_handle_build_with_pipeline_updates_context() -> None:
     assert "Pages crawled: 0" in message
     assert should_exit is False
     assert context.index is built_index
+
+
+def test_handle_build_with_save_function_reports_path() -> None:
+    context = main_module.CLIContext()
+    built_index = create_inverted_index()
+
+    def fake_build_pipeline():
+        return BuildResult(
+            index=built_index,
+            pages=[],
+            summary=BuildSummary(
+                pages_crawled=0,
+                unique_terms=0,
+                token_count=0,
+                duration_seconds=0.1,
+            ),
+        )
+
+    message, _ = handle_command(
+        "build",
+        context=context,
+        build_pipeline=fake_build_pipeline,
+        save_index_fn=lambda index: "data/index.json",
+    )
+
+    assert "Index saved to: data/index.json" in message
+    assert context.index is built_index
+
+
+def test_handle_load_sets_context_index() -> None:
+    context = main_module.CLIContext()
+    loaded_index = create_inverted_index()
+
+    message, should_exit = handle_command(
+        "load",
+        context=context,
+        load_index_fn=lambda: (loaded_index, "data/index.json"),
+    )
+
+    assert message == "Index loaded from: data/index.json"
+    assert should_exit is False
+    assert context.index is loaded_index
+
+
+def test_handle_load_wraps_storage_error() -> None:
+    context = main_module.CLIContext()
+
+    with pytest.raises(ValueError, match="Index file not found"):
+        handle_command(
+            "load",
+            context=context,
+            load_index_fn=lambda: (_ for _ in ()).throw(
+                StorageError("Index file not found: data/index.json")
+            ),
+        )

@@ -8,7 +8,7 @@ import uuid
 import pytest
 
 from src.indexer import create_inverted_index
-from src.storage import load_index, save_index
+from src.storage import StorageError, load_index, save_index
 
 
 def _make_local_tmp_dir() -> Path:
@@ -38,7 +38,7 @@ def test_load_missing_file_raises_file_not_found() -> None:
     temp_dir = _make_local_tmp_dir()
     try:
         missing = temp_dir / "missing.json"
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(StorageError, match="Index file not found"):
             load_index(path=missing)
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
@@ -49,7 +49,65 @@ def test_load_malformed_json_raises_decode_error() -> None:
     try:
         malformed = temp_dir / "index.json"
         malformed.write_text("{not-valid-json", encoding="utf-8")
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(StorageError, match="not valid JSON"):
             load_index(path=malformed)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_missing_required_key_raises_storage_error() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(json.dumps({"meta": {}, "documents": {}}), encoding="utf-8")
+
+        with pytest.raises(StorageError, match="missing required key: 'terms'"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_save_to_directory_path_raises_storage_error() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        index = create_inverted_index()
+        with pytest.raises(StorageError, match="path is a directory"):
+            save_index(index, path=temp_dir)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_from_directory_path_raises_storage_error() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        with pytest.raises(StorageError, match="path is a directory"):
+            load_index(path=temp_dir)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_non_object_json_raises_storage_error() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(json.dumps(["not", "an", "object"]), encoding="utf-8")
+
+        with pytest.raises(StorageError, match="must contain a JSON object"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def test_load_with_non_object_terms_raises_storage_error() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps({"meta": {}, "documents": {}, "terms": []}),
+            encoding="utf-8",
+        )
+
+        with pytest.raises(StorageError, match="key 'terms' must contain an object"):
+            load_index(path=invalid)
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
