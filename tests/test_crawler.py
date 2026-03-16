@@ -221,3 +221,78 @@ def test_crawl_site_bfs_honours_max_pages_limit() -> None:
 
     assert pages == []
     assert requester.requested_urls == []
+
+
+def test_crawl_site_bfs_reports_progress_for_each_success() -> None:
+    start = "https://quotes.toscrape.com/"
+    page_2 = "https://quotes.toscrape.com/page/2/"
+    responses = {
+        start: crawler.FetchResult(
+            url=start,
+            ok=True,
+            status_code=200,
+            content='<a href="/page/2/">next</a>',
+            error=None,
+        ),
+        page_2: crawler.FetchResult(
+            url=page_2,
+            ok=True,
+            status_code=200,
+            content="<p>end</p>",
+            error=None,
+        ),
+    }
+    requester = _FakeRequester(responses)
+    progress_messages: list[str] = []
+
+    pages = crawler.crawl_site_bfs(
+        start,
+        allowed_domain="quotes.toscrape.com",
+        requester=requester,  # type: ignore[arg-type]
+        progress_callback=progress_messages.append,
+    )
+
+    assert [page.url for page in pages] == [start, page_2]
+    assert progress_messages == [
+        f"Build: crawled 1 page(s) (last: {start})",
+        f"Build: crawled 2 page(s) (last: {page_2})",
+    ]
+
+
+def test_crawl_site_bfs_uses_custom_min_delay_when_requester_not_provided(
+    monkeypatch,
+) -> None:
+    start = "https://quotes.toscrape.com/"
+    created_delays: list[float] = []
+
+    class _DelayRecorderRequester:
+        def __init__(self, *, min_delay_seconds: float) -> None:
+            created_delays.append(min_delay_seconds)
+
+        def fetch(
+            self,
+            url: str,
+            *,
+            timeout_seconds: float = 10.0,
+            user_agent: str = "search-engine-pipeline/1.0",
+        ) -> crawler.FetchResult:
+            del timeout_seconds, user_agent
+            return crawler.FetchResult(
+                url=url,
+                ok=True,
+                status_code=200,
+                content="<p>ok</p>",
+                error=None,
+            )
+
+    monkeypatch.setattr(crawler, "PoliteRequester", _DelayRecorderRequester)
+
+    pages = crawler.crawl_site_bfs(
+        start,
+        allowed_domain="quotes.toscrape.com",
+        min_delay_seconds=1.5,
+        max_pages=1,
+    )
+
+    assert len(pages) == 1
+    assert created_delays == [1.5]

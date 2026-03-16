@@ -216,6 +216,22 @@ def test_handle_build_wraps_save_storage_error() -> None:
         )
 
 
+def test_read_politeness_seconds_defaults_to_coursework_value(monkeypatch) -> None:
+    monkeypatch.delenv("SEARCH_POLITENESS_SECONDS", raising=False)
+    assert main_module._read_politeness_seconds() == 6.0
+
+
+def test_read_politeness_seconds_allows_override(monkeypatch) -> None:
+    monkeypatch.setenv("SEARCH_POLITENESS_SECONDS", "0.75")
+    assert main_module._read_politeness_seconds() == 0.75
+
+
+def test_read_politeness_seconds_rejects_invalid_value(monkeypatch) -> None:
+    monkeypatch.setenv("SEARCH_POLITENESS_SECONDS", "abc")
+    with pytest.raises(ValueError, match="SEARCH_POLITENESS_SECONDS"):
+        main_module._read_politeness_seconds()
+
+
 def test_handle_load_sets_context_index() -> None:
     context = main_module.CLIContext()
     loaded_index = create_inverted_index()

@@ -50,6 +50,7 @@ def run_build_pipeline(
     start_url: str = DEFAULT_START_URL,
     allowed_domain: str = DEFAULT_ALLOWED_DOMAIN,
     requester: Optional[PoliteRequester] = None,
+    min_delay_seconds: float = 6.0,
     timeout_seconds: float = 10.0,
     user_agent: str = "search-engine-pipeline/1.0",
     max_pages: Optional[int] = None,
@@ -64,9 +65,11 @@ def run_build_pipeline(
         start_url,
         allowed_domain=allowed_domain,
         requester=requester,
+        min_delay_seconds=min_delay_seconds,
         timeout_seconds=timeout_seconds,
         user_agent=user_agent,
         max_pages=max_pages,
+        progress_callback=progress,
     )
 
     progress("Build: indexing crawled pages...")

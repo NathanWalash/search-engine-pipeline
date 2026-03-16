@@ -185,12 +185,15 @@ def crawl_site_bfs(
     *,
     allowed_domain: str,
     requester: Optional[PoliteRequester] = None,
+    min_delay_seconds: float = 6.0,
     timeout_seconds: float = 10.0,
     user_agent: str = "search-engine-pipeline/1.0",
     max_pages: Optional[int] = None,
+    progress_callback: Optional[Callable[[str], None]] = None,
 ) -> list[CrawledPage]:
     """Crawl internal pages from start_url using BFS traversal."""
-    fetcher = requester or PoliteRequester()
+    fetcher = requester or PoliteRequester(min_delay_seconds=min_delay_seconds)
+    progress = progress_callback or (lambda message: None)
     queue: deque[str] = deque([start_url])
     visited: set[str] = set()
     scheduled: set[str] = {start_url}
@@ -231,6 +234,7 @@ def crawl_site_bfs(
                 status_code=status_code,
             )
         )
+        progress(f"Build: crawled {len(crawled_pages)} page(s) (last: {url})")
 
         try:
             links = extract_internal_links(
