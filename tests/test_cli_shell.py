@@ -3,6 +3,7 @@
 import pytest
 
 import src.main as main_module
+from src.indexer import create_inverted_index
 from src.main import handle_command, parse_command
 
 
@@ -124,3 +125,26 @@ def test_main_calls_run_shell(monkeypatch) -> None:
     main_module.main()
 
     assert called == [True]
+
+
+def test_handle_build_with_pipeline_updates_context() -> None:
+    context = main_module.CLIContext()
+    built_index = create_inverted_index()
+    built_index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/",
+        tokens=["good"],
+    )
+
+    def fake_build_pipeline():
+        return built_index, []
+
+    message, should_exit = handle_command(
+        "build",
+        context=context,
+        build_pipeline=fake_build_pipeline,
+    )
+
+    assert message == "Build complete. Indexed 0 pages."
+    assert should_exit is False
+    assert context.index is built_index
