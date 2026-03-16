@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 
 from src.indexer import InvertedIndex
+from src.ranking import score_document_tfidf
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,7 @@ class QueryMatchView:
     document_id: str
     url: str
     term_frequencies: dict[str, int]
+    relevance_score: float
 
 
 def _normalize_query_terms(query_terms: Sequence[str]) -> list[str]:
@@ -128,10 +130,17 @@ def find_and_match_documents(
                 document_id=document_id,
                 url=document.url,
                 term_frequencies=term_frequencies,
+                relevance_score=score_document_tfidf(
+                    index,
+                    document_id=document_id,
+                    query_terms=normalized_terms,
+                ),
             )
         )
 
-    matches.sort(key=lambda match: (match.url, match.document_id))
+    matches.sort(
+        key=lambda match: (-match.relevance_score, match.url, match.document_id)
+    )
     return matches
 
 
@@ -145,6 +154,11 @@ def format_find_results(query_terms: Sequence[str], matches: Sequence[QueryMatch
             f"{term}={match.term_frequencies[term]}"
             for term in sorted(match.term_frequencies)
         )
-        lines.append(f"- {match.document_id} | {match.url} | {term_stats}")
+        lines.append(
+            (
+                f"- {match.document_id} | {match.url} | "
+                f"score={match.relevance_score:.4f} | {term_stats}"
+            )
+        )
 
     return "\n".join(lines)

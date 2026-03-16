@@ -113,3 +113,48 @@ def test_find_and_match_documents_skips_missing_document_metadata() -> None:
     del index.documents["doc1"]
 
     assert find_and_match_documents(index, ["truth"]) == []
+
+
+def test_find_and_match_documents_ranks_by_tfidf_score() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["good", "good", "good", "friends"],
+    )
+
+    matches = find_and_match_documents(index, ["good", "friends"])
+
+    assert [match.document_id for match in matches] == ["doc2", "doc1"]
+    assert matches[0].relevance_score > matches[1].relevance_score
+
+
+def test_find_and_match_documents_tie_breaks_by_url_then_document_id() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["good"],
+    )
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good"],
+    )
+
+    matches = find_and_match_documents(index, ["good"])
+
+    assert [match.document_id for match in matches] == ["doc1", "doc2"]
+
+
+def test_find_output_includes_tfidf_score() -> None:
+    context = _make_context_with_index()
+    message, should_exit = handle_command("find good", context=context)
+
+    assert should_exit is False
+    assert "score=" in message
