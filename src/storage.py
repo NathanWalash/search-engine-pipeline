@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import json
+from typing import Any
 
 from src.indexer import InvertedIndex
 
@@ -21,3 +22,10 @@ def save_index(
         encoding="utf-8",
     )
     return target
+
+
+def load_index(*, path: str | Path = DEFAULT_INDEX_PATH) -> InvertedIndex:
+    """Load an index from a JSON file path."""
+    source = Path(path)
+    raw_data: dict[str, Any] = json.loads(source.read_text(encoding="utf-8"))
+    return InvertedIndex.from_dict(raw_data)
