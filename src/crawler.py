@@ -3,11 +3,14 @@
 from collections import deque
 from dataclasses import dataclass
 from html.parser import HTMLParser
+import logging
 import time
 from typing import Callable, Optional
 from urllib.parse import urljoin, urlparse, urlunparse
 
 import requests
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -150,6 +153,14 @@ def fetch_page(
             content="",
             error=str(exc),
         )
+    except Exception as exc:  # pragma: no cover - defensive guard
+        return FetchResult(
+            url=url,
+            ok=False,
+            status_code=None,
+            content="",
+            error=f"Unexpected error: {exc}",
+        )
 
     if response.status_code >= 400:
         return FetchResult(
@@ -182,6 +193,7 @@ def crawl_site_bfs(
     fetcher = requester or PoliteRequester()
     queue: deque[str] = deque([start_url])
     visited: set[str] = set()
+    scheduled: set[str] = {start_url}
     crawled_pages: list[CrawledPage] = []
 
     while queue:
@@ -193,12 +205,22 @@ def crawl_site_bfs(
             continue
         visited.add(url)
 
-        result = fetcher.fetch(
-            url,
-            timeout_seconds=timeout_seconds,
-            user_agent=user_agent,
-        )
+        try:
+            result = fetcher.fetch(
+                url,
+                timeout_seconds=timeout_seconds,
+                user_agent=user_agent,
+            )
+        except Exception as exc:  # pragma: no cover - defensive guard
+            LOGGER.warning("Crawler fetch raised for %s: %s", url, exc)
+            continue
+
         if not result.ok:
+            LOGGER.warning(
+                "Crawler skipped %s due to fetch failure: %s",
+                url,
+                result.error or "unknown error",
+            )
             continue
 
         status_code = result.status_code if result.status_code is not None else 200
@@ -210,12 +232,20 @@ def crawl_site_bfs(
             )
         )
 
-        for link in extract_internal_links(
-            result.content,
-            base_url=url,
-            allowed_domain=allowed_domain,
-        ):
-            if link not in visited:
-                queue.append(link)
+        try:
+            links = extract_internal_links(
+                result.content,
+                base_url=url,
+                allowed_domain=allowed_domain,
+            )
+        except Exception as exc:  # pragma: no cover - defensive guard
+            LOGGER.warning("Crawler link extraction failed for %s: %s", url, exc)
+            continue
+
+        for link in links:
+            if link in visited or link in scheduled:
+                continue
+            queue.append(link)
+            scheduled.add(link)
 
     return crawled_pages
