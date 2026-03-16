@@ -58,6 +58,20 @@ Build the index by crawling the site and save it to `data/index.json`.
 search> build
 ```
 
+By default, the crawler enforces a 6-second politeness delay between requests.
+For local testing only, you can override this before starting the CLI:
+
+```powershell
+$env:SEARCH_POLITENESS_SECONDS = "1.0"
+python -m src.main
+```
+
+The `build` output includes live crawl progress lines:
+
+```text
+Build: crawled N page(s) (last: <url>)
+```
+
 ### `load`
 
 Load a previously saved index from `data/index.json`.

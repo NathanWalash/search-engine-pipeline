@@ -1,6 +1,7 @@
 """CLI entry point for the search engine tool."""
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Callable, Optional, Sequence
 
@@ -15,6 +16,8 @@ from src.search import (
 from src.storage import DEFAULT_INDEX_PATH, StorageError, load_index, save_index
 
 PROMPT = "search> "
+DEFAULT_POLITENESS_SECONDS = 6.0
+POLITENESS_ENV_VAR = "SEARCH_POLITENESS_SECONDS"
 HELP_TEXT = (
     "Available commands:\n"
     "  build\n"
@@ -58,6 +61,24 @@ def _require_loaded_index(context: CLIContext) -> InvertedIndex:
     if context.index is None:
         raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
     return context.index
+
+
+def _read_politeness_seconds() -> float:
+    """Return politeness delay from env or fallback to coursework-safe default."""
+    raw_value = os.getenv(POLITENESS_ENV_VAR)
+    if raw_value is None or not raw_value.strip():
+        return DEFAULT_POLITENESS_SECONDS
+
+    try:
+        value = float(raw_value)
+    except ValueError as exc:
+        raise ValueError(
+            f"Error: {POLITENESS_ENV_VAR} must be a positive number"
+        ) from exc
+
+    if value <= 0:
+        raise ValueError(f"Error: {POLITENESS_ENV_VAR} must be greater than 0")
+    return value
 
 
 def dispatch_command(
@@ -183,6 +204,7 @@ def run_shell() -> None:
                 raw_command,
                 context=context,
                 build_pipeline=lambda: run_build_pipeline(
+                    min_delay_seconds=_read_politeness_seconds(),
                     progress_callback=print,
                 ),
                 save_index_fn=lambda index: str(

@@ -42,16 +42,20 @@ def test_run_build_pipeline_uses_crawl_output(monkeypatch) -> None:
         *,
         allowed_domain: str,
         requester,
+        min_delay_seconds: float,
         timeout_seconds: float,
         user_agent: str,
         max_pages,
+        progress_callback,
     ) -> list[CrawledPage]:
         assert start_url == "https://quotes.toscrape.com/"
         assert allowed_domain == "quotes.toscrape.com"
         assert requester is None
+        assert min_delay_seconds == 6.0
         assert timeout_seconds == 10.0
         assert user_agent == "search-engine-pipeline/1.0"
         assert max_pages is None
+        assert callable(progress_callback)
         return pages
 
     monkeypatch.setattr(build_pipeline, "crawl_site_bfs", fake_crawl_site_bfs)
