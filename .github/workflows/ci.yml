@@ -35,7 +35,7 @@ jobs:
 
       - name: Run unit tests with coverage
         run: |
-          python -m pytest --cov=src --cov-report=term-missing --cov-report=xml
+          python -m pytest
 
       - name: Upload coverage XML
         if: matrix.python-version == '3.12'

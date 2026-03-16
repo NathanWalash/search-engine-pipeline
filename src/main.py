@@ -198,6 +198,9 @@ def run_shell() -> None:
         except ValueError as error:
             print(error)
             continue
+        except Exception as error:  # pragma: no cover - defensive guard
+            print(f"Error: unexpected failure: {error}")
+            continue
 
         print(message)
         if should_exit:

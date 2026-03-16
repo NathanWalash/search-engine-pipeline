@@ -13,6 +13,13 @@ class StorageError(Exception):
     """Raised when index storage operations fail validation or IO."""
 
 
+def _require_int(value: Any, *, field_name: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise StorageError(f"Index field '{field_name}' must be an integer") from exc
+
+
 def _validate_payload(raw_data: Any) -> dict[str, Any]:
     if not isinstance(raw_data, dict):
         raise StorageError("Index file must contain a JSON object")
@@ -22,6 +29,59 @@ def _validate_payload(raw_data: Any) -> dict[str, Any]:
             raise StorageError(f"Index file is missing required key: '{key}'")
         if not isinstance(raw_data[key], dict):
             raise StorageError(f"Index key '{key}' must contain an object")
+
+    meta = raw_data["meta"]
+    _require_int(meta.get("page_count", 0), field_name="meta.page_count")
+    _require_int(meta.get("token_count", 0), field_name="meta.token_count")
+
+    for document_id, document_raw in raw_data["documents"].items():
+        if not isinstance(document_raw, dict):
+            raise StorageError(
+                f"Document '{document_id}' payload must contain an object"
+            )
+        if "url" not in document_raw or "length" not in document_raw:
+            raise StorageError(
+                f"Document '{document_id}' is missing required fields"
+            )
+        if not isinstance(document_raw["url"], str):
+            raise StorageError(f"Document '{document_id}' url must be a string")
+        _require_int(document_raw["length"], field_name=f"documents.{document_id}.length")
+
+    for term, term_raw in raw_data["terms"].items():
+        if not isinstance(term_raw, dict):
+            raise StorageError(f"Term '{term}' payload must contain an object")
+
+        _require_int(
+            term_raw.get("document_frequency", 0),
+            field_name=f"terms.{term}.document_frequency",
+        )
+
+        postings = term_raw.get("postings", {})
+        if not isinstance(postings, dict):
+            raise StorageError(f"Term '{term}' postings must contain an object")
+
+        for document_id, posting_raw in postings.items():
+            if not isinstance(posting_raw, dict):
+                raise StorageError(
+                    f"Posting '{term}->{document_id}' payload must contain an object"
+                )
+            _require_int(
+                posting_raw.get("term_frequency", 0),
+                field_name=f"terms.{term}.postings.{document_id}.term_frequency",
+            )
+
+            positions = posting_raw.get("positions", [])
+            if not isinstance(positions, list):
+                raise StorageError(
+                    f"terms.{term}.postings.{document_id}.positions must be a list"
+                )
+            for index, position in enumerate(positions):
+                _require_int(
+                    position,
+                    field_name=(
+                        f"terms.{term}.postings.{document_id}.positions[{index}]"
+                    ),
+                )
 
     return raw_data
 
