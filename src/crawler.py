@@ -1,8 +1,10 @@
 """Crawler utilities for fetching and traversing pages."""
 
 from dataclasses import dataclass
+from html.parser import HTMLParser
 import time
 from typing import Callable, Optional
+from urllib.parse import urljoin, urlparse, urlunparse
 
 import requests
 
@@ -58,6 +60,66 @@ class PoliteRequester:
         )
         self._last_request_time = self._clock()
         return result
+
+
+class _HrefExtractor(HTMLParser):
+    """Collect href values from anchor tags."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.hrefs: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "a":
+            return
+
+        for key, value in attrs:
+            if key == "href" and value:
+                self.hrefs.append(value)
+                return
+
+
+def normalize_url(base_url: str, href: str) -> str:
+    """Resolve a raw href against base_url and strip fragments."""
+    absolute = urljoin(base_url, href)
+    parsed = urlparse(absolute)
+    cleaned = parsed._replace(fragment="")
+    return urlunparse(cleaned)
+
+
+def is_internal_url(url: str, allowed_domain: str) -> bool:
+    """Return whether a URL belongs to the crawl domain."""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    hostname = (parsed.hostname or "").lower()
+    allowed = allowed_domain.lower()
+    return hostname == allowed or hostname.endswith(f".{allowed}")
+
+
+def extract_internal_links(
+    html: str,
+    *,
+    base_url: str,
+    allowed_domain: str,
+) -> list[str]:
+    """Extract internal links from HTML, preserving first-seen order."""
+    parser = _HrefExtractor()
+    parser.feed(html)
+    parser.close()
+
+    links: list[str] = []
+    seen: set[str] = set()
+    for href in parser.hrefs:
+        normalized = normalize_url(base_url, href)
+        if not is_internal_url(normalized, allowed_domain):
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        links.append(normalized)
+
+    return links
 
 
 def fetch_page(
