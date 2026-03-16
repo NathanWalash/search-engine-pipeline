@@ -1,5 +1,6 @@
 """Crawler utilities for fetching and traversing pages."""
 
+from collections import deque
 from dataclasses import dataclass
 from html.parser import HTMLParser
 import time
@@ -18,6 +19,15 @@ class FetchResult:
     status_code: Optional[int]
     content: str
     error: Optional[str]
+
+
+@dataclass(frozen=True)
+class CrawledPage:
+    """Represents a successfully crawled page."""
+
+    url: str
+    html: str
+    status_code: int
 
 
 class PoliteRequester:
@@ -157,3 +167,55 @@ def fetch_page(
         content=response.text,
         error=None,
     )
+
+
+def crawl_site_bfs(
+    start_url: str,
+    *,
+    allowed_domain: str,
+    requester: Optional[PoliteRequester] = None,
+    timeout_seconds: float = 10.0,
+    user_agent: str = "search-engine-pipeline/1.0",
+    max_pages: Optional[int] = None,
+) -> list[CrawledPage]:
+    """Crawl internal pages from start_url using BFS traversal."""
+    fetcher = requester or PoliteRequester()
+    queue: deque[str] = deque([start_url])
+    visited: set[str] = set()
+    crawled_pages: list[CrawledPage] = []
+
+    while queue:
+        if max_pages is not None and len(crawled_pages) >= max_pages:
+            break
+
+        url = queue.popleft()
+        if url in visited:
+            continue
+        visited.add(url)
+
+        result = fetcher.fetch(
+            url,
+            timeout_seconds=timeout_seconds,
+            user_agent=user_agent,
+        )
+        if not result.ok:
+            continue
+
+        status_code = result.status_code if result.status_code is not None else 200
+        crawled_pages.append(
+            CrawledPage(
+                url=url,
+                html=result.content,
+                status_code=status_code,
+            )
+        )
+
+        for link in extract_internal_links(
+            result.content,
+            base_url=url,
+            allowed_domain=allowed_domain,
+        ):
+            if link not in visited:
+                queue.append(link)
+
+    return crawled_pages
