@@ -1,5 +1,6 @@
 """In-memory inverted index data structures."""
 
+from collections import Counter
 from dataclasses import dataclass, field
 
 
@@ -39,6 +40,28 @@ class InvertedIndex:
     )
     documents: dict[str, DocumentRecord] = field(default_factory=dict)
     terms: dict[str, TermRecord] = field(default_factory=dict)
+
+    def add_document_terms(
+        self,
+        *,
+        document_id: str,
+        url: str,
+        tokens: list[str],
+    ) -> None:
+        """Index one document using token frequencies."""
+        if document_id in self.documents:
+            raise ValueError(f"Document '{document_id}' already indexed")
+
+        self.documents[document_id] = DocumentRecord(url=url)
+        self.meta["page_count"] += 1
+        self.meta["token_count"] += len(tokens)
+
+        token_counts = Counter(tokens)
+        for term, term_frequency in token_counts.items():
+            term_record = self.terms.setdefault(term, TermRecord())
+            term_record.postings[document_id] = PostingRecord(
+                term_frequency=term_frequency,
+            )
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-serializable representation of the index."""
