@@ -64,6 +64,7 @@ def test_fetch_page_request_exception(monkeypatch) -> None:
 
 def test_extract_internal_links_filters_and_deduplicates() -> None:
     html = """
+    <div>ignore-me</div>
     <a href="/page/2/">next</a>
     <a href="https://quotes.toscrape.com/page/2/">dup</a>
     <a href="https://quotes.toscrape.com/page/3/#frag">fragment</a>
@@ -196,3 +197,27 @@ def test_crawl_site_bfs_skips_failed_pages() -> None:
 
     assert [page.url for page in pages] == [start]
     assert requester.requested_urls == [start, missing]
+
+
+def test_crawl_site_bfs_honours_max_pages_limit() -> None:
+    start = "https://quotes.toscrape.com/"
+    responses = {
+        start: crawler.FetchResult(
+            url=start,
+            ok=True,
+            status_code=200,
+            content='<a href="/page/2/">next</a>',
+            error=None,
+        ),
+    }
+    requester = _FakeRequester(responses)
+
+    pages = crawler.crawl_site_bfs(
+        start,
+        allowed_domain="quotes.toscrape.com",
+        requester=requester,  # type: ignore[arg-type]
+        max_pages=0,
+    )
+
+    assert pages == []
+    assert requester.requested_urls == []

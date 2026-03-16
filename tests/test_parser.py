@@ -1,9 +1,13 @@
 """Unit tests for parser extraction and normalisation behaviour."""
 
+import builtins
+
+import src.parser as parser_module
 from src.parser import (
     extract_text,
     extract_tokens_from_html,
     extract_tokens_with_positions_from_html,
+    parse_html,
     tokenize,
     tokenize_with_positions,
 )
@@ -57,3 +61,25 @@ def test_extract_tokens_with_positions_from_html() -> None:
         ("good", 3),
         ("times", 4),
     ]
+
+
+def test_extract_text_falls_back_without_bs4(monkeypatch) -> None:
+    original_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "bs4":
+            raise ModuleNotFoundError("No module named 'bs4'")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    text = parser_module.extract_text(
+        "<html><body><script>x</script><p>Hello</p><noscript>y</noscript></body></html>"
+    )
+    assert text == "Hello"
+
+
+def test_parse_html_returns_all_normalised_fields() -> None:
+    parsed = parse_html("<p>Truth, truth.</p>")
+    assert parsed.text == "Truth, truth."
+    assert parsed.tokens == ["truth", "truth"]
+    assert parsed.token_positions == [("truth", 0), ("truth", 1)]

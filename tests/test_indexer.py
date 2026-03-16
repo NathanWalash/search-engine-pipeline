@@ -90,3 +90,22 @@ def test_duplicate_document_id_raises_error() -> None:
             url="https://quotes.toscrape.com/page/2/",
             token_positions=[("y", 0)],
         )
+
+
+def test_to_dict_serialises_index_structure() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["friend", "friend", "truth"],
+    )
+
+    serialised = index.to_dict()
+    assert serialised["meta"] == {"page_count": 1, "token_count": 3}
+    assert serialised["documents"]["doc1"] == {
+        "url": "https://quotes.toscrape.com/page/1/",
+        "length": 3,
+    }
+    assert serialised["terms"]["friend"]["document_frequency"] == 1
+    assert serialised["terms"]["friend"]["postings"]["doc1"]["term_frequency"] == 2
+    assert serialised["terms"]["friend"]["postings"]["doc1"]["positions"] == [0, 1]
