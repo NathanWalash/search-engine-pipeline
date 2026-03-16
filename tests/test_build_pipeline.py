@@ -55,9 +55,34 @@ def test_run_build_pipeline_uses_crawl_output(monkeypatch) -> None:
         return pages
 
     monkeypatch.setattr(build_pipeline, "crawl_site_bfs", fake_crawl_site_bfs)
-    index, crawled_pages = build_pipeline.run_build_pipeline()
+    progress_messages: list[str] = []
+    result = build_pipeline.run_build_pipeline(progress_callback=progress_messages.append)
+    index = result.index
+    crawled_pages = result.pages
 
     assert [page.url for page in crawled_pages] == ["https://quotes.toscrape.com/"]
     serialised = index.to_dict()
     assert serialised["meta"] == {"page_count": 1, "token_count": 3}
     assert serialised["terms"]["one"]["postings"]["doc1"]["positions"] == [0, 2]
+    assert progress_messages == [
+        "Build: crawling pages...",
+        "Build: indexing crawled pages...",
+        "Build: complete.",
+    ]
+
+
+def test_format_build_summary_is_deterministic() -> None:
+    summary = build_pipeline.BuildSummary(
+        pages_crawled=3,
+        unique_terms=12,
+        token_count=87,
+        duration_seconds=1.23456,
+    )
+
+    assert build_pipeline.format_build_summary(summary) == (
+        "Build complete.\n"
+        "Pages crawled: 3\n"
+        "Unique terms: 12\n"
+        "Total tokens: 87\n"
+        "Duration: 1.23s"
+    )

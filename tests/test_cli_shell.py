@@ -3,6 +3,7 @@
 import pytest
 
 import src.main as main_module
+from src.build_pipeline import BuildResult, BuildSummary
 from src.indexer import create_inverted_index
 from src.main import handle_command, parse_command
 
@@ -137,7 +138,16 @@ def test_handle_build_with_pipeline_updates_context() -> None:
     )
 
     def fake_build_pipeline():
-        return built_index, []
+        return BuildResult(
+            index=built_index,
+            pages=[],
+            summary=BuildSummary(
+                pages_crawled=0,
+                unique_terms=1,
+                token_count=1,
+                duration_seconds=0.4,
+            ),
+        )
 
     message, should_exit = handle_command(
         "build",
@@ -145,6 +155,7 @@ def test_handle_build_with_pipeline_updates_context() -> None:
         build_pipeline=fake_build_pipeline,
     )
 
-    assert message == "Build complete. Indexed 0 pages."
+    assert "Build complete." in message
+    assert "Pages crawled: 0" in message
     assert should_exit is False
     assert context.index is built_index

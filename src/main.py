@@ -3,8 +3,7 @@
 from dataclasses import dataclass
 from typing import Callable, Optional, Sequence
 
-from src.build_pipeline import run_build_pipeline
-from src.crawler import CrawledPage
+from src.build_pipeline import BuildResult, format_build_summary, run_build_pipeline
 from src.indexer import InvertedIndex
 
 PROMPT = "search> "
@@ -26,7 +25,7 @@ class CLIContext:
     index: Optional[InvertedIndex] = None
 
 
-BuildPipelineFn = Callable[[], tuple[InvertedIndex, list[CrawledPage]]]
+BuildPipelineFn = Callable[[], BuildResult]
 
 
 def parse_command(raw_command: str) -> tuple[str, list[str]]:
@@ -65,9 +64,9 @@ def dispatch_command(
         if context is None or build_pipeline is None:
             return "Build requested. Pipeline not implemented yet.", False
 
-        index, pages = build_pipeline()
-        context.index = index
-        return f"Build complete. Indexed {len(pages)} pages.", False
+        build_result = build_pipeline()
+        context.index = build_result.index
+        return format_build_summary(build_result.summary), False
 
     if command == "load":
         _ensure_no_arguments(command, args)
@@ -127,7 +126,9 @@ def run_shell() -> None:
             message, should_exit = handle_command(
                 raw_command,
                 context=context,
-                build_pipeline=run_build_pipeline,
+                build_pipeline=lambda: run_build_pipeline(
+                    progress_callback=print,
+                ),
             )
         except ValueError as error:
             print(error)
