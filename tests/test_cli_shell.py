@@ -2,6 +2,7 @@
 
 import pytest
 
+import src.main as main_module
 from src.main import handle_command, parse_command
 
 
@@ -58,3 +59,56 @@ def test_handle_exit_sets_exit_state() -> None:
 def test_handle_unknown_command_errors() -> None:
     with pytest.raises(ValueError, match="unknown command"):
         handle_command("unknown")
+
+
+def test_help_rejects_unexpected_arguments() -> None:
+    with pytest.raises(ValueError, match="does not take arguments"):
+        handle_command("help extra")
+
+
+def test_run_shell_handles_eof_exit(monkeypatch, capsys) -> None:
+    def raise_eof(prompt: str) -> str:
+        del prompt
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", raise_eof)
+
+    main_module.run_shell()
+    output = capsys.readouterr().out
+
+    assert "Search Engine CLI" in output
+    assert "Exiting search shell." in output
+
+
+def test_run_shell_handles_keyboard_interrupt(monkeypatch, capsys) -> None:
+    def raise_interrupt(prompt: str) -> str:
+        del prompt
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("builtins.input", raise_interrupt)
+
+    main_module.run_shell()
+    output = capsys.readouterr().out
+
+    assert "Search Engine CLI" in output
+    assert "Exiting search shell." in output
+
+
+def test_run_shell_prints_error_then_exits(monkeypatch, capsys) -> None:
+    commands = iter(["print", "exit"])
+    monkeypatch.setattr("builtins.input", lambda prompt: next(commands))
+
+    main_module.run_shell()
+    output = capsys.readouterr().out
+
+    assert "Error: word required" in output
+    assert "Exiting search shell." in output
+
+
+def test_main_calls_run_shell(monkeypatch) -> None:
+    called: list[bool] = []
+
+    monkeypatch.setattr(main_module, "run_shell", lambda: called.append(True))
+    main_module.main()
+
+    assert called == [True]
