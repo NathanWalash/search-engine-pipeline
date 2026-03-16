@@ -6,6 +6,7 @@ from typing import Callable, Optional, Sequence
 
 from src.build_pipeline import BuildResult, format_build_summary, run_build_pipeline
 from src.indexer import InvertedIndex
+from src.search import format_term_lookup, lookup_term
 from src.storage import DEFAULT_INDEX_PATH, StorageError, load_index, save_index
 
 PROMPT = "search> "
@@ -102,7 +103,15 @@ def dispatch_command(
             raise ValueError("Error: word required")
         if len(args) > 1:
             raise ValueError("Error: print expects exactly one word")
-        return f"Print requested for '{args[0]}'.", False
+        if context is None:
+            return f"Print requested for '{args[0]}'.", False
+        if context.index is None:
+            raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
+
+        lookup = lookup_term(context.index, args[0])
+        if lookup is None:
+            return "Word not found in index", False
+        return format_term_lookup(lookup), False
 
     if command == "find":
         if not args:
