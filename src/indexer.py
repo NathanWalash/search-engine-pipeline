@@ -1,7 +1,7 @@
 """In-memory inverted index data structures."""
 
 from dataclasses import dataclass, field
-from typing import Sequence
+from typing import Any, Sequence
 
 TokenPosition = tuple[str, int]
 
@@ -131,6 +131,39 @@ class InvertedIndex:
                 for term, term_record in self.terms.items()
             },
         }
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "InvertedIndex":
+        """Construct an index instance from serialized dict data."""
+        index = cls()
+
+        meta = raw.get("meta", {})
+        index.meta = {
+            "page_count": int(meta.get("page_count", 0)),
+            "token_count": int(meta.get("token_count", 0)),
+        }
+
+        for document_id, document_raw in raw.get("documents", {}).items():
+            index.documents[document_id] = DocumentRecord(
+                url=str(document_raw.get("url", "")),
+                length=int(document_raw.get("length", 0)),
+            )
+
+        for term, term_raw in raw.get("terms", {}).items():
+            postings: dict[str, PostingRecord] = {}
+            for document_id, posting_raw in term_raw.get("postings", {}).items():
+                postings[document_id] = PostingRecord(
+                    term_frequency=int(posting_raw.get("term_frequency", 0)),
+                    positions=[int(position) for position in posting_raw.get("positions", [])],
+                )
+
+            document_frequency = int(term_raw.get("document_frequency", len(postings)))
+            index.terms[term] = TermRecord(
+                document_frequency=document_frequency,
+                postings=postings,
+            )
+
+        return index
 
 
 def create_inverted_index() -> InvertedIndex:

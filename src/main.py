@@ -1,10 +1,12 @@
 """CLI entry point for the search engine tool."""
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Optional, Sequence
 
 from src.build_pipeline import BuildResult, format_build_summary, run_build_pipeline
 from src.indexer import InvertedIndex
+from src.storage import DEFAULT_INDEX_PATH, StorageError, load_index, save_index
 
 PROMPT = "search> "
 HELP_TEXT = (
@@ -26,6 +28,8 @@ class CLIContext:
 
 
 BuildPipelineFn = Callable[[], BuildResult]
+SaveIndexFn = Callable[[InvertedIndex], str]
+LoadIndexFn = Callable[[], tuple[InvertedIndex, str]]
 
 
 def parse_command(raw_command: str) -> tuple[str, list[str]]:
@@ -49,6 +53,8 @@ def dispatch_command(
     *,
     context: Optional[CLIContext] = None,
     build_pipeline: Optional[BuildPipelineFn] = None,
+    save_index_fn: Optional[SaveIndexFn] = None,
+    load_index_fn: Optional[LoadIndexFn] = None,
 ) -> tuple[str, bool]:
     """Return a placeholder response for the given command."""
     if command == "help":
@@ -66,11 +72,30 @@ def dispatch_command(
 
         build_result = build_pipeline()
         context.index = build_result.index
-        return format_build_summary(build_result.summary), False
+        summary = format_build_summary(build_result.summary)
+
+        if save_index_fn is None:
+            return summary, False
+
+        try:
+            saved_path = save_index_fn(build_result.index)
+        except StorageError as exc:
+            raise ValueError(f"Error: {exc}") from exc
+
+        return f"{summary}\nIndex saved to: {saved_path}", False
 
     if command == "load":
         _ensure_no_arguments(command, args)
-        return "Load requested. Storage layer not implemented yet.", False
+        if context is None or load_index_fn is None:
+            return "Load requested. Storage layer not implemented yet.", False
+
+        try:
+            loaded_index, loaded_path = load_index_fn()
+        except StorageError as exc:
+            raise ValueError(f"Error: {exc}") from exc
+
+        context.index = loaded_index
+        return f"Index loaded from: {loaded_path}", False
 
     if command == "print":
         if not args:
@@ -95,6 +120,8 @@ def handle_command(
     *,
     context: Optional[CLIContext] = None,
     build_pipeline: Optional[BuildPipelineFn] = None,
+    save_index_fn: Optional[SaveIndexFn] = None,
+    load_index_fn: Optional[LoadIndexFn] = None,
 ) -> tuple[str, bool]:
     """Parse and dispatch user input, returning message and exit state."""
     command, args = parse_command(raw_command)
@@ -103,6 +130,8 @@ def handle_command(
         args,
         context=context,
         build_pipeline=build_pipeline,
+        save_index_fn=save_index_fn,
+        load_index_fn=load_index_fn,
     )
 
 
@@ -128,6 +157,13 @@ def run_shell() -> None:
                 context=context,
                 build_pipeline=lambda: run_build_pipeline(
                     progress_callback=print,
+                ),
+                save_index_fn=lambda index: str(
+                    save_index(index, path=DEFAULT_INDEX_PATH)
+                ),
+                load_index_fn=lambda: (
+                    load_index(path=DEFAULT_INDEX_PATH),
+                    str(Path(DEFAULT_INDEX_PATH)),
                 ),
             )
         except ValueError as error:
