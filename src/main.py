@@ -3,7 +3,15 @@
 from typing import Sequence
 
 PROMPT = "search> "
-HELP_TEXT = "Commands: build, load, print <word>, find <query>, help, exit"
+HELP_TEXT = (
+    "Available commands:\n"
+    "  build\n"
+    "  load\n"
+    "  print <word>\n"
+    "  find <query>\n"
+    "  help\n"
+    "  exit"
+)
 
 
 def parse_command(raw_command: str) -> tuple[str, list[str]]:
@@ -52,7 +60,9 @@ def dispatch_command(command: str, args: Sequence[str]) -> tuple[str, bool]:
         query = " ".join(args)
         return f"Find requested for '{query}'.", False
 
-    raise ValueError(f"Error: unknown command '{command}'")
+    raise ValueError(
+        f"Error: unknown command '{command}'. Type 'help' for usage."
+    )
 
 
 def handle_command(raw_command: str) -> tuple[str, bool]:
