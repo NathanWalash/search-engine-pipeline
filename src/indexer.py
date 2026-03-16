@@ -1,6 +1,9 @@
 """In-memory inverted index data structures."""
 
 from dataclasses import dataclass, field
+from typing import Sequence
+
+TokenPosition = tuple[str, int]
 
 
 @dataclass
@@ -40,29 +43,44 @@ class InvertedIndex:
     documents: dict[str, DocumentRecord] = field(default_factory=dict)
     terms: dict[str, TermRecord] = field(default_factory=dict)
 
+    def _register_document(
+        self,
+        *,
+        document_id: str,
+        url: str,
+        token_count: int,
+    ) -> None:
+        if document_id in self.documents:
+            raise ValueError(f"Document '{document_id}' already indexed")
+
+        self.documents[document_id] = DocumentRecord(url=url, length=token_count)
+        self.meta["page_count"] += 1
+        self.meta["token_count"] += token_count
+
+    def _group_positions(
+        self,
+        token_positions: Sequence[TokenPosition],
+    ) -> dict[str, list[int]]:
+        grouped: dict[str, list[int]] = {}
+        for term, position in token_positions:
+            grouped.setdefault(term, []).append(position)
+        return grouped
+
     def add_document(
         self,
         *,
         document_id: str,
         url: str,
-        token_positions: list[tuple[str, int]],
+        token_positions: Sequence[TokenPosition],
     ) -> None:
         """Index one document using positional token postings."""
-        if document_id in self.documents:
-            raise ValueError(f"Document '{document_id}' already indexed")
-
-        self.documents[document_id] = DocumentRecord(
+        self._register_document(
+            document_id=document_id,
             url=url,
-            length=len(token_positions),
+            token_count=len(token_positions),
         )
-        self.meta["page_count"] += 1
-        self.meta["token_count"] += len(token_positions)
 
-        positions_by_term: dict[str, list[int]] = {}
-        for term, position in token_positions:
-            positions = positions_by_term.setdefault(term, [])
-            positions.append(position)
-
+        positions_by_term = self._group_positions(token_positions)
         for term, positions in positions_by_term.items():
             term_record = self.terms.setdefault(term, TermRecord())
             term_record.postings[document_id] = PostingRecord(
@@ -79,7 +97,9 @@ class InvertedIndex:
         tokens: list[str],
     ) -> None:
         """Index one document from raw tokens, inferring token positions."""
-        token_positions = [(term, position) for position, term in enumerate(tokens)]
+        token_positions: list[TokenPosition] = [
+            (term, position) for position, term in enumerate(tokens)
+        ]
         self.add_document(
             document_id=document_id,
             url=url,
