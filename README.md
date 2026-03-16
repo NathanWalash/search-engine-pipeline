@@ -16,7 +16,7 @@ Core roadmap phases (1-10) are implemented, including:
 - integration and edge-case tests
 - CI-based automated test runs
 
-Current collaboration base branch is `feature/project-scaffold`.
+Current collaboration base branch is `main`.
 
 ## Installation
 
