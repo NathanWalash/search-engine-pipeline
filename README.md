@@ -70,9 +70,71 @@ Run case-insensitive AND search across all query terms.
 search> find good friends
 ```
 
+## Testing
+
+Run the full suite:
+
+```bash
+python -m pytest
+```
+
+Run with concise output:
+
+```bash
+python -m pytest -q
+```
+
+Coverage reporting is configured in `pytest.ini` and includes:
+
+- terminal coverage summary
+- `coverage.xml` output for CI artifacts
+
+## Architecture
+
+The core processing flow is:
+
+```text
+crawl -> parse -> index -> store -> search
+```
+
+Module responsibilities:
+
+- `src/crawler.py`: HTTP fetching, politeness delay, internal-link BFS crawl
+- `src/parser.py`: HTML text extraction, tokenization, token positions
+- `src/indexer.py`: inverted index data model and document/term statistics
+- `src/build_pipeline.py`: crawl+parse+index orchestration
+- `src/storage.py`: JSON save/load with validation
+- `src/search.py`: `print`/`find` query logic and output formatting
+- `src/main.py`: interactive CLI command dispatch
+
 ## Project Layout
 
-- `src/` application modules
-- `tests/` test suite
-- `data/` generated index artifacts
-- `docs/` project specification and roadmap
+```text
+search-engine-pipeline/
+  src/
+    build_pipeline.py
+    crawler.py
+    indexer.py
+    main.py
+    parser.py
+    search.py
+    storage.py
+  tests/
+    test_build_pipeline.py
+    test_cli_shell.py
+    test_crawler.py
+    test_edge_cases.py
+    test_indexer.py
+    test_integration_workflow.py
+    test_parser.py
+    test_scaffold.py
+    test_search.py
+    test_storage.py
+  data/
+  docs/
+    ROADMAP.md
+    SPECIFICATION.md
+  .github/workflows/ci.yml
+  README.md
+  requirements.txt
+```
