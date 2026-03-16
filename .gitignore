@@ -21,3 +21,4 @@ Thumbs.db
 # Generated project artifacts
 data/index.json
 .tmp_brief_text.txt
+pytest-cache-files-*
