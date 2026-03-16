@@ -1,7 +1,20 @@
 """Utilities for extracting plain text from HTML documents."""
 
+from dataclasses import dataclass
 from html.parser import HTMLParser
 import re
+
+TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+TokenPosition = tuple[str, int]
+
+
+@dataclass(frozen=True)
+class ParsedDocument:
+    """Represents extracted text and its normalized token forms."""
+
+    text: str
+    tokens: list[str]
+    token_positions: list[TokenPosition]
 
 
 class _TextExtractor(HTMLParser):
@@ -53,22 +66,34 @@ def extract_text(html: str) -> str:
 
 
 def tokenize(text: str) -> list[str]:
-    """Split text into lowercase word tokens with punctuation removed."""
-    return re.findall(r"[a-z0-9]+", text.lower())
+    """Return lowercase word tokens with punctuation removed."""
+    return TOKEN_PATTERN.findall(text.lower())
 
 
-def tokenize_with_positions(text: str) -> list[tuple[str, int]]:
-    """Split text into lowercase tokens and include each token position."""
+def tokenize_with_positions(text: str) -> list[TokenPosition]:
+    """Return lowercase tokens paired with token-order positions."""
     return [(token, index) for index, token in enumerate(tokenize(text))]
 
 
 def extract_tokens_from_html(html: str) -> list[str]:
-    """Extract and tokenize visible text content from raw HTML."""
-    return tokenize(extract_text(html))
+    """Extract visible text from HTML and return normalized tokens."""
+    return parse_html(html).tokens
 
 
 def extract_tokens_with_positions_from_html(
     html: str,
-) -> list[tuple[str, int]]:
-    """Extract text from HTML and return token-position pairs."""
-    return tokenize_with_positions(extract_text(html))
+) -> list[TokenPosition]:
+    """Extract visible text from HTML and return token-position pairs."""
+    return parse_html(html).token_positions
+
+
+def parse_html(html: str) -> ParsedDocument:
+    """Extract text and return all normalized parser outputs together."""
+    text = extract_text(html)
+    tokens = tokenize(text)
+    token_positions = [(token, index) for index, token in enumerate(tokens)]
+    return ParsedDocument(
+        text=text,
+        tokens=tokens,
+        token_positions=token_positions,
+    )
