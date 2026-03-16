@@ -1,0 +1,1 @@
+"""Indexer component placeholder."""
