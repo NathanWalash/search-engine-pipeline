@@ -53,6 +53,15 @@ def _ensure_no_arguments(command: str, args: Sequence[str]) -> None:
         raise ValueError(f"Error: '{command}' does not take arguments")
 
 
+def _require_loaded_index(context: Optional[CLIContext]) -> InvertedIndex:
+    """Return the loaded index from context or raise a user-facing error."""
+    if context is None:
+        raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
+    if context.index is None:
+        raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
+    return context.index
+
+
 def dispatch_command(
     command: str,
     args: Sequence[str],
@@ -110,10 +119,9 @@ def dispatch_command(
             raise ValueError("Error: print expects exactly one word")
         if context is None:
             return f"Print requested for '{args[0]}'.", False
-        if context.index is None:
-            raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
+        index = _require_loaded_index(context)
 
-        lookup = lookup_term(context.index, args[0])
+        lookup = lookup_term(index, args[0])
         if lookup is None:
             return "Word not found in index", False
         return format_term_lookup(lookup), False
@@ -124,10 +132,9 @@ def dispatch_command(
         if context is None:
             query = " ".join(args)
             return f"Find requested for '{query}'.", False
-        if context.index is None:
-            raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
+        index = _require_loaded_index(context)
 
-        matches = find_and_match_documents(context.index, args)
+        matches = find_and_match_documents(index, args)
         if not matches:
             return "No matching pages found.", False
         return format_find_results(args, matches), False

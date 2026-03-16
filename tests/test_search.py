@@ -1,5 +1,7 @@
 """Tests for print/find command behaviour against indexed data."""
 
+import pytest
+
 import src.main as main_module
 from src.indexer import create_inverted_index
 from src.main import handle_command
@@ -67,3 +69,19 @@ def test_find_is_case_insensitive() -> None:
     assert should_exit is False
     assert "Query: good" in message
     assert "Matches: 2" in message
+
+
+def test_find_normalises_duplicate_terms() -> None:
+    context = _make_context_with_index()
+    message, should_exit = handle_command("find GOOD good", context=context)
+
+    assert should_exit is False
+    assert "Query: good" in message
+    assert "Matches: 2" in message
+
+
+def test_print_requires_loaded_index_in_context() -> None:
+    context = main_module.CLIContext(index=None)
+
+    with pytest.raises(ValueError, match="no index loaded"):
+        handle_command("print good", context=context)

@@ -34,6 +34,19 @@ class QueryMatchView:
     term_frequencies: dict[str, int]
 
 
+def _normalize_query_terms(query_terms: Sequence[str]) -> list[str]:
+    """Lowercase and de-duplicate query terms while preserving order."""
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for term in query_terms:
+        lowered = term.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        normalized.append(lowered)
+    return normalized
+
+
 def lookup_term(index: InvertedIndex, raw_term: str) -> Optional[TermLookupView]:
     """Return lookup data for one term, or None if term is not indexed."""
     term = raw_term.lower()
@@ -65,6 +78,7 @@ def format_term_lookup(result: TermLookupView) -> str:
     lines = [
         f"Word: {result.term}",
         f"Document frequency: {result.document_frequency}",
+        "Postings:",
     ]
 
     for posting in result.postings:
@@ -84,7 +98,7 @@ def find_and_match_documents(
     query_terms: Sequence[str],
 ) -> list[QueryMatchView]:
     """Return documents that contain all query terms (AND semantics)."""
-    normalized_terms = [term.lower() for term in query_terms]
+    normalized_terms = _normalize_query_terms(query_terms)
     if not normalized_terms:
         return []
 
@@ -123,12 +137,13 @@ def find_and_match_documents(
 
 def format_find_results(query_terms: Sequence[str], matches: Sequence[QueryMatchView]) -> str:
     """Render AND query matches as user-facing text output."""
-    normalized_terms = [term.lower() for term in query_terms]
+    normalized_terms = _normalize_query_terms(query_terms)
     lines = [f"Query: {' '.join(normalized_terms)}", f"Matches: {len(matches)}"]
 
     for match in matches:
         term_stats = ", ".join(
-            f"{term}={frequency}" for term, frequency in match.term_frequencies.items()
+            f"{term}={match.term_frequencies[term]}"
+            for term in sorted(match.term_frequencies)
         )
         lines.append(f"- {match.document_id} | {match.url} | {term_stats}")
 
