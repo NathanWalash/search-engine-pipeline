@@ -57,6 +57,18 @@ def tokenize(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
+def tokenize_with_positions(text: str) -> list[tuple[str, int]]:
+    """Split text into lowercase tokens and include each token position."""
+    return [(token, index) for index, token in enumerate(tokenize(text))]
+
+
 def extract_tokens_from_html(html: str) -> list[str]:
     """Extract and tokenize visible text content from raw HTML."""
     return tokenize(extract_text(html))
+
+
+def extract_tokens_with_positions_from_html(
+    html: str,
+) -> list[tuple[str, int]]:
+    """Extract text from HTML and return token-position pairs."""
+    return tokenize_with_positions(extract_text(html))
