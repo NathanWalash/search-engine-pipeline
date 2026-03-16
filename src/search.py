@@ -1,7 +1,7 @@
 """Query helpers for term lookup and result formatting."""
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 from src.indexer import InvertedIndex
 
@@ -23,6 +23,15 @@ class TermLookupView:
     term: str
     document_frequency: int
     postings: list[TermPostingView]
+
+
+@dataclass(frozen=True)
+class QueryMatchView:
+    """Renderable query match for one document."""
+
+    document_id: str
+    url: str
+    term_frequencies: dict[str, int]
 
 
 def lookup_term(index: InvertedIndex, raw_term: str) -> Optional[TermLookupView]:
@@ -66,5 +75,60 @@ def format_term_lookup(result: TermLookupView) -> str:
                 f"positions={posting.positions}"
             )
         )
+
+    return "\n".join(lines)
+
+
+def find_and_match_documents(
+    index: InvertedIndex,
+    query_terms: Sequence[str],
+) -> list[QueryMatchView]:
+    """Return documents that contain all query terms (AND semantics)."""
+    normalized_terms = [term.lower() for term in query_terms]
+    if not normalized_terms:
+        return []
+
+    term_records = []
+    for term in normalized_terms:
+        term_record = index.terms.get(term)
+        if term_record is None:
+            return []
+        term_records.append((term, term_record))
+
+    matching_document_ids = set(term_records[0][1].postings.keys())
+    for _, term_record in term_records[1:]:
+        matching_document_ids &= set(term_record.postings.keys())
+
+    matches: list[QueryMatchView] = []
+    for document_id in matching_document_ids:
+        document = index.documents.get(document_id)
+        if document is None:
+            continue
+
+        term_frequencies = {
+            term: term_record.postings[document_id].term_frequency
+            for term, term_record in term_records
+        }
+        matches.append(
+            QueryMatchView(
+                document_id=document_id,
+                url=document.url,
+                term_frequencies=term_frequencies,
+            )
+        )
+
+    return matches
+
+
+def format_find_results(query_terms: Sequence[str], matches: Sequence[QueryMatchView]) -> str:
+    """Render AND query matches as user-facing text output."""
+    normalized_terms = [term.lower() for term in query_terms]
+    lines = [f"Query: {' '.join(normalized_terms)}", f"Matches: {len(matches)}"]
+
+    for match in matches:
+        term_stats = ", ".join(
+            f"{term}={frequency}" for term, frequency in match.term_frequencies.items()
+        )
+        lines.append(f"- {match.document_id} | {match.url} | {term_stats}")
 
     return "\n".join(lines)

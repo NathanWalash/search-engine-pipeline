@@ -6,7 +6,12 @@ from typing import Callable, Optional, Sequence
 
 from src.build_pipeline import BuildResult, format_build_summary, run_build_pipeline
 from src.indexer import InvertedIndex
-from src.search import format_term_lookup, lookup_term
+from src.search import (
+    find_and_match_documents,
+    format_find_results,
+    format_term_lookup,
+    lookup_term,
+)
 from src.storage import DEFAULT_INDEX_PATH, StorageError, load_index, save_index
 
 PROMPT = "search> "
@@ -116,8 +121,16 @@ def dispatch_command(
     if command == "find":
         if not args:
             raise ValueError("Error: query cannot be empty")
-        query = " ".join(args)
-        return f"Find requested for '{query}'.", False
+        if context is None:
+            query = " ".join(args)
+            return f"Find requested for '{query}'.", False
+        if context.index is None:
+            raise ValueError("Error: no index loaded. Run 'build' or 'load' first")
+
+        matches = find_and_match_documents(context.index, args)
+        if not matches:
+            return "No matching pages found.", False
+        return format_find_results(args, matches), False
 
     raise ValueError(
         f"Error: unknown command '{command}'. Type 'help' for usage."
