@@ -138,3 +138,49 @@ search-engine-pipeline/
   README.md
   requirements.txt
 ```
+
+## Demo Checklist
+
+Use this as a pre-recording checklist for the 5-minute demo.
+
+- Show `build` running and confirm index save path
+- Show `load` running against the saved index file
+- Show `print <word>` for:
+  - an existing term
+  - a missing term
+- Show `find <query>` for:
+  - a single term query
+  - a multi-term AND query
+- Show an edge case:
+  - empty `find`
+  - missing index file for `load`
+- Run the test suite in terminal (`python -m pytest -q`)
+- Show commit history for incremental branch-based development
+
+## GenAI Usage Notes (Scaffold)
+
+Fill this before recording so the reflection section stays specific and concise.
+
+```text
+GenAI tools used:
+- Tool:
+- Purpose:
+
+Example where GenAI helped:
+- Task:
+- Suggested output:
+- What I kept:
+- What I changed and why:
+
+Example where GenAI hindered or was incorrect:
+- Task:
+- Problem in output:
+- How I detected it:
+- Fix I applied:
+
+Impact on learning and workflow:
+- Time saved:
+- Concepts learned:
+- Debugging effort:
+- What I would do differently next time:
+```
