@@ -1,6 +1,11 @@
 """CLI entry point for the search engine tool."""
 
-from typing import Sequence
+from dataclasses import dataclass
+from typing import Callable, Optional, Sequence
+
+from src.build_pipeline import run_build_pipeline
+from src.crawler import CrawledPage
+from src.indexer import InvertedIndex
 
 PROMPT = "search> "
 HELP_TEXT = (
@@ -12,6 +17,16 @@ HELP_TEXT = (
     "  help\n"
     "  exit"
 )
+
+
+@dataclass
+class CLIContext:
+    """State kept during one interactive CLI session."""
+
+    index: Optional[InvertedIndex] = None
+
+
+BuildPipelineFn = Callable[[], tuple[InvertedIndex, list[CrawledPage]]]
 
 
 def parse_command(raw_command: str) -> tuple[str, list[str]]:
@@ -29,7 +44,13 @@ def _ensure_no_arguments(command: str, args: Sequence[str]) -> None:
         raise ValueError(f"Error: '{command}' does not take arguments")
 
 
-def dispatch_command(command: str, args: Sequence[str]) -> tuple[str, bool]:
+def dispatch_command(
+    command: str,
+    args: Sequence[str],
+    *,
+    context: Optional[CLIContext] = None,
+    build_pipeline: Optional[BuildPipelineFn] = None,
+) -> tuple[str, bool]:
     """Return a placeholder response for the given command."""
     if command == "help":
         _ensure_no_arguments(command, args)
@@ -41,7 +62,12 @@ def dispatch_command(command: str, args: Sequence[str]) -> tuple[str, bool]:
 
     if command == "build":
         _ensure_no_arguments(command, args)
-        return "Build requested. Pipeline not implemented yet.", False
+        if context is None or build_pipeline is None:
+            return "Build requested. Pipeline not implemented yet.", False
+
+        index, pages = build_pipeline()
+        context.index = index
+        return f"Build complete. Indexed {len(pages)} pages.", False
 
     if command == "load":
         _ensure_no_arguments(command, args)
@@ -65,16 +91,27 @@ def dispatch_command(command: str, args: Sequence[str]) -> tuple[str, bool]:
     )
 
 
-def handle_command(raw_command: str) -> tuple[str, bool]:
+def handle_command(
+    raw_command: str,
+    *,
+    context: Optional[CLIContext] = None,
+    build_pipeline: Optional[BuildPipelineFn] = None,
+) -> tuple[str, bool]:
     """Parse and dispatch user input, returning message and exit state."""
     command, args = parse_command(raw_command)
-    return dispatch_command(command, args)
+    return dispatch_command(
+        command,
+        args,
+        context=context,
+        build_pipeline=build_pipeline,
+    )
 
 
 def run_shell() -> None:
     """Run an interactive command loop."""
     print("Search Engine CLI")
     print("Type 'help' for available commands.")
+    context = CLIContext()
 
     while True:
         try:
@@ -87,7 +124,11 @@ def run_shell() -> None:
             break
 
         try:
-            message, should_exit = handle_command(raw_command)
+            message, should_exit = handle_command(
+                raw_command,
+                context=context,
+                build_pipeline=run_build_pipeline,
+            )
         except ValueError as error:
             print(error)
             continue
