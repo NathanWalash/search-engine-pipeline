@@ -42,7 +42,7 @@ def lookup_term(index: InvertedIndex, raw_term: str) -> Optional[TermLookupView]
         return None
 
     postings: list[TermPostingView] = []
-    for document_id, posting in term_record.postings.items():
+    for document_id, posting in sorted(term_record.postings.items()):
         document = index.documents.get(document_id)
         postings.append(
             TermPostingView(
@@ -100,7 +100,7 @@ def find_and_match_documents(
         matching_document_ids &= set(term_record.postings.keys())
 
     matches: list[QueryMatchView] = []
-    for document_id in matching_document_ids:
+    for document_id in sorted(matching_document_ids):
         document = index.documents.get(document_id)
         if document is None:
             continue
@@ -117,6 +117,7 @@ def find_and_match_documents(
             )
         )
 
+    matches.sort(key=lambda match: (match.url, match.document_id))
     return matches
 
 
