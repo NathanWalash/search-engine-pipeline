@@ -64,6 +64,76 @@ def _normalize_query_terms(query_terms: Sequence[str]) -> list[str]:
     return normalized
 
 
+def _normalize_raw_term(raw_term: str) -> str:
+    """Convert raw user input into one normalized lookup term."""
+    tokens = tokenize(raw_term)
+    if not tokens:
+        return raw_term.strip().lower()
+    return tokens[0]
+
+
+def _levenshtein_distance(left: str, right: str) -> int:
+    """Return Levenshtein edit distance between two terms."""
+    if left == right:
+        return 0
+    if not left:
+        return len(right)
+    if not right:
+        return len(left)
+
+    previous = list(range(len(right) + 1))
+    for left_index, left_char in enumerate(left, start=1):
+        current = [left_index]
+        for right_index, right_char in enumerate(right, start=1):
+            insert_cost = current[right_index - 1] + 1
+            delete_cost = previous[right_index] + 1
+            replace_cost = previous[right_index - 1] + int(left_char != right_char)
+            current.append(min(insert_cost, delete_cost, replace_cost))
+        previous = current
+    return previous[-1]
+
+
+def suggest_closest_term(
+    index: InvertedIndex,
+    raw_term: str,
+    *,
+    max_distance: int = 2,
+) -> Optional[str]:
+    """Return nearest indexed term for raw_term, or None when no close match exists."""
+    term = _normalize_raw_term(raw_term)
+    if not term or term in index.terms:
+        return None
+
+    best_term: Optional[str] = None
+    best_distance = max_distance + 1
+    for candidate in index.terms:
+        distance = _levenshtein_distance(term, candidate)
+        if distance > max_distance:
+            continue
+        if distance < best_distance:
+            best_term = candidate
+            best_distance = distance
+            continue
+        if distance == best_distance and best_term is not None and candidate < best_term:
+            best_term = candidate
+
+    return best_term
+
+
+def suggest_query_terms(index: InvertedIndex, query_terms: Sequence[str]) -> dict[str, str]:
+    """Return missing query terms mapped to closest indexed suggestions."""
+    parsed_query = _parse_find_query(query_terms)
+    suggestions: dict[str, str] = {}
+    for term in parsed_query.scoring_terms:
+        if term in index.terms:
+            continue
+        suggestion = suggest_closest_term(index, term)
+        if suggestion is None:
+            continue
+        suggestions[term] = suggestion
+    return suggestions
+
+
 def _parse_find_query(query_terms: Sequence[str]) -> ParsedFindQuery:
     """Parse plain terms and quoted phrases from a find query."""
     raw_query = " ".join(query_terms).strip()

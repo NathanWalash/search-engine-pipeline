@@ -12,6 +12,8 @@ from src.search import (
     format_find_results,
     format_term_lookup,
     lookup_term,
+    suggest_closest_term,
+    suggest_query_terms,
 )
 from src.storage import DEFAULT_INDEX_PATH, StorageError, load_index, save_index
 
@@ -81,6 +83,19 @@ def _read_politeness_seconds() -> float:
     return value
 
 
+def _format_suggestions(suggestions: dict[str, str]) -> str:
+    """Render one or more spelling suggestions as user-facing text."""
+    if not suggestions:
+        return ""
+    if len(suggestions) == 1:
+        return f"Did you mean: {next(iter(suggestions.values()))}?"
+
+    lines = ["Did you mean:"]
+    for raw_term, suggested in suggestions.items():
+        lines.append(f"- {raw_term} -> {suggested}")
+    return "\n".join(lines)
+
+
 def dispatch_command(
     command: str,
     args: Sequence[str],
@@ -142,7 +157,10 @@ def dispatch_command(
 
         lookup = lookup_term(index, args[0])
         if lookup is None:
-            return "Word not found in index", False
+            suggestion = suggest_closest_term(index, args[0])
+            if suggestion is None:
+                return "Word not found in index", False
+            return f"Word not found in index\nDid you mean: {suggestion}?", False
         return format_term_lookup(lookup), False
 
     if command == "find":
@@ -155,7 +173,13 @@ def dispatch_command(
 
         matches = find_and_match_documents(index, args)
         if not matches:
-            return "No matching pages found.", False
+            suggestions = suggest_query_terms(index, args)
+            if not suggestions:
+                return "No matching pages found.", False
+            return (
+                "No matching pages found.\n"
+                f"{_format_suggestions(suggestions)}"
+            ), False
         return format_find_results(args, matches), False
 
     raise ValueError(

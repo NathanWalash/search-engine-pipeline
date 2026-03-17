@@ -5,7 +5,11 @@ import pytest
 import src.main as main_module
 from src.indexer import create_inverted_index
 from src.main import handle_command
-from src.search import find_and_match_documents
+from src.search import (
+    find_and_match_documents,
+    suggest_closest_term,
+    suggest_query_terms,
+)
 
 
 def _make_context_with_index() -> main_module.CLIContext:
@@ -221,3 +225,38 @@ def test_find_phrase_query_returns_no_matches_for_non_contiguous_terms() -> None
 
     assert should_exit is False
     assert message == "No matching pages found."
+
+
+def test_suggest_closest_term_returns_nearest_indexed_word() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["friend", "truth"],
+    )
+
+    assert suggest_closest_term(index, "frend") == "friend"
+
+
+def test_suggest_closest_term_returns_none_for_far_terms() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["friend", "truth"],
+    )
+
+    assert suggest_closest_term(index, "zzzzzz") is None
+
+
+def test_suggest_query_terms_includes_phrase_tokens() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends"],
+    )
+
+    suggestions = suggest_query_terms(index, ['"godo friends"'])
+
+    assert suggestions == {"godo": "good"}
