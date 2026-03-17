@@ -4,7 +4,12 @@ from dataclasses import dataclass
 import time
 from typing import Callable, Optional, Sequence
 
-from src.crawler import CrawledPage, PoliteRequester, crawl_site_bfs
+from src.crawler import (
+    CrawlReport,
+    CrawledPage,
+    PoliteRequester,
+    crawl_site_bfs_with_report,
+)
 from src.indexer import InvertedIndex, create_inverted_index
 from src.parser import parse_html
 
@@ -20,6 +25,10 @@ class BuildSummary:
     unique_terms: int
     token_count: int
     duration_seconds: float
+    pages_failed: int = 0
+    urls_discovered: int = 0
+    urls_visited: int = 0
+    crawl_success_rate: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -29,6 +38,7 @@ class BuildResult:
     index: InvertedIndex
     pages: list[CrawledPage]
     summary: BuildSummary
+    crawl_report: Optional[CrawlReport] = None
 
 
 def index_crawled_pages(pages: Sequence[CrawledPage]) -> InvertedIndex:
@@ -61,7 +71,7 @@ def run_build_pipeline(
     started_at = time.monotonic()
 
     progress("Build: crawling pages...")
-    pages = crawl_site_bfs(
+    pages, crawl_report = crawl_site_bfs_with_report(
         start_url,
         allowed_domain=allowed_domain,
         requester=requester,
@@ -75,15 +85,29 @@ def run_build_pipeline(
     progress("Build: indexing crawled pages...")
     index = index_crawled_pages(pages)
     duration_seconds = time.monotonic() - started_at
+    crawl_success_rate = (
+        crawl_report.pages_crawled / crawl_report.urls_visited
+        if crawl_report.urls_visited
+        else 0.0
+    )
 
     summary = BuildSummary(
         pages_crawled=len(pages),
         unique_terms=len(index.terms),
         token_count=index.meta["token_count"],
         duration_seconds=duration_seconds,
+        pages_failed=crawl_report.pages_failed,
+        urls_discovered=crawl_report.urls_discovered,
+        urls_visited=crawl_report.urls_visited,
+        crawl_success_rate=crawl_success_rate,
     )
     progress("Build: complete.")
-    return BuildResult(index=index, pages=list(pages), summary=summary)
+    return BuildResult(
+        index=index,
+        pages=list(pages),
+        summary=summary,
+        crawl_report=crawl_report,
+    )
 
 
 def format_build_summary(summary: BuildSummary) -> str:
@@ -91,6 +115,10 @@ def format_build_summary(summary: BuildSummary) -> str:
     return (
         "Build complete.\n"
         f"Pages crawled: {summary.pages_crawled}\n"
+        f"Pages failed: {summary.pages_failed}\n"
+        f"URLs discovered: {summary.urls_discovered}\n"
+        f"URLs visited: {summary.urls_visited}\n"
+        f"Crawl success rate: {summary.crawl_success_rate:.1%}\n"
         f"Unique terms: {summary.unique_terms}\n"
         f"Total tokens: {summary.token_count}\n"
         f"Duration: {summary.duration_seconds:.2f}s"
