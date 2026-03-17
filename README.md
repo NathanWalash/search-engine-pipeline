@@ -16,7 +16,13 @@ Core roadmap phases (1-10) are implemented, including:
 - integration and edge-case tests
 - CI-based automated test runs
 
-Current collaboration base branch is `main`.
+Implemented advanced features:
+
+- TF-IDF result ranking
+- quoted phrase search
+- query suggestions (`Did you mean`)
+- crawl statistics reporting
+- smarter tokenisation for apostrophes and hyphenated words
 
 ## Installation
 
@@ -105,7 +111,23 @@ Misspelled terms can return a `Did you mean` suggestion.
 ```text
 search> find good friends
 search> find "good friends"
+search> find well-known
+search> find well known
 ```
+
+## Tokenisation Rules
+
+Index tokenisation currently applies these rules:
+
+- lowercase all text
+- preserve apostrophes inside words (`don't`, `it's`)
+- preserve canonical hyphenated terms (`well-known`)
+- also index split parts of hyphenated terms (`well`, `known`)
+- strip leading/trailing punctuation
+- ignore empty tokens
+
+Hyphen strategy is `preserve + split`, so queries like `well-known`,
+`well known`, and `known` can all match hyphenated content.
 
 ## Testing
 
