@@ -66,7 +66,7 @@ def _normalize_query_terms(query_terms: Sequence[str]) -> list[str]:
 
 def _normalize_raw_term(raw_term: str) -> str:
     """Convert raw user input into one normalized lookup term."""
-    tokens = tokenize(raw_term)
+    tokens = tokenize(raw_term, expand_hyphenated=False)
     if not tokens:
         return raw_term.strip().lower()
     return tokens[0]
@@ -146,7 +146,7 @@ def _parse_find_query(query_terms: Sequence[str]) -> ParsedFindQuery:
     for match in QUERY_COMPONENT_PATTERN.finditer(raw_query):
         phrase_raw, token_raw = match.groups()
         if phrase_raw is not None:
-            phrase_tokens = tokenize(phrase_raw)
+            phrase_tokens = tokenize(phrase_raw, expand_hyphenated=False)
             if not phrase_tokens:
                 continue
             collected_phrases.append(phrase_tokens)
@@ -159,7 +159,7 @@ def _parse_find_query(query_terms: Sequence[str]) -> ParsedFindQuery:
         if token_raw is None:
             continue
 
-        for term in tokenize(token_raw):
+        for term in tokenize(token_raw, expand_hyphenated=False):
             collected_terms.append(term)
             if term not in seen_display_terms:
                 display_parts.append(term)
@@ -254,7 +254,7 @@ def _find_phrase_document_ids(
 
 def lookup_term(index: InvertedIndex, raw_term: str) -> Optional[TermLookupView]:
     """Return lookup data for one term, or None if term is not indexed."""
-    term = raw_term.lower()
+    term = _normalize_raw_term(raw_term)
     term_record = index.terms.get(term)
     if term_record is None:
         return None
