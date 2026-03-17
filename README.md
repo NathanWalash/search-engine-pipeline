@@ -72,6 +72,13 @@ The `build` output includes live crawl progress lines:
 Build: crawled N page(s) (last: <url>)
 ```
 
+After crawl/indexing, `build` also prints a crawl report summary:
+
+- pages crawled / failed
+- URLs discovered / visited
+- crawl success rate
+- unique terms, token count, and duration
+
 ### `load`
 
 Load a previously saved index from `data/index.json`.
