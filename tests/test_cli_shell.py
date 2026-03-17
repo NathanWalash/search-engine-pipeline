@@ -271,3 +271,31 @@ def test_handle_find_no_matches_reports_empty_results() -> None:
     message, should_exit = handle_command("find banana", context=context)
     assert should_exit is False
     assert message == "No matching pages found."
+
+
+def test_handle_print_missing_word_reports_suggestion_when_available() -> None:
+    context = main_module.CLIContext(index=create_inverted_index())
+    context.index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["friend"],
+    )
+
+    message, should_exit = handle_command("print frend", context=context)
+
+    assert should_exit is False
+    assert message == "Word not found in index\nDid you mean: friend?"
+
+
+def test_handle_find_missing_word_reports_suggestion_when_available() -> None:
+    context = main_module.CLIContext(index=create_inverted_index())
+    context.index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["friend"],
+    )
+
+    message, should_exit = handle_command("find frend", context=context)
+
+    assert should_exit is False
+    assert message == "No matching pages found.\nDid you mean: friend?"
