@@ -105,7 +105,7 @@ def dispatch_command(
     save_index_fn: Optional[SaveIndexFn] = None,
     load_index_fn: Optional[LoadIndexFn] = None,
 ) -> tuple[str, bool]:
-    """Return a placeholder response for the given command."""
+    """Execute one parsed command and return message plus exit flag."""
     if command == "help":
         _ensure_no_arguments(command, args)
         return HELP_TEXT, False

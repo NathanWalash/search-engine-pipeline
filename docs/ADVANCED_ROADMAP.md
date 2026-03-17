@@ -1,0 +1,254 @@
+# COMP3011 Coursework 2 - Advanced Roadmap
+
+This roadmap tracks post-core enhancements.
+
+## Advanced Status Snapshot
+
+Last updated: 2026-03-17
+
+1. Feature A - TF-IDF ranking - complete
+2. Feature B - phrase search - complete
+3. Feature C - query suggestions - complete
+4. Feature D - crawl statistics report - complete
+5. Feature E - smarter tokenisation - complete
+6. Non-feature hardening pass (CI/testing/code-quality baseline) - complete
+
+## Advanced Features Completed
+
+### Feature A - TF-IDF Ranking
+
+- IDF calculation and relevance scoring added
+- `find` results ranked by score
+- tests confirm ranking order
+
+### Feature B - Phrase Search
+
+- quoted query parsing added
+- positional phrase matching implemented
+- tests cover exact contiguous phrase behavior
+
+### Feature C - Query Suggestions
+
+- edit-distance suggestion helper added
+- `Did you mean` support for missing terms
+- tests cover suggestion output paths
+
+### Feature D - Crawl Statistics Report
+
+- crawl metrics collected during build
+- build summary output includes crawl/index stats
+- tests cover summary generation and integration
+
+### Feature E - Smarter Tokenisation
+
+- internal apostrophes preserved (`don't`, `it's`)
+- hyphen strategy is preserve + split (`well-known`, `well`, `known`)
+- shared base token position used for canonical/split forms
+- tests cover parser and search behaviour for hyphen/apostrophe cases
+
+### Non-Feature Hardening Pass (Completed)
+
+- CI now enforces lint (`ruff`), type checks (`mypy`), and tests with coverage threshold
+- publication-quality cleanup baseline applied (docstrings/type-hint consistency pass)
+- submission packaging clarified (`data/index.json` remains generated during development)
+
+## Next Planned Feature Queue (F-J)
+
+Implementation note: keep features behind small rollout controls while
+developing, then switch defaults once validated.
+
+### Feature F - Result snippets with matched-term highlighting
+
+#### Goal
+
+Improve `find` output readability by showing short text snippets and
+highlighting matched terms.
+
+#### Suggested branch
+
+`feature/result-snippets-highlighting`
+
+#### Optional development flag (recommended)
+
+`find --snippets on|off` (or equivalent config flag) to enable gradual rollout.
+
+#### Suggested commits
+
+1. `feat: generate context snippets for find query matches`
+2. `feat: highlight matched query terms in snippets`
+3. `test: add coverage for snippet boundaries and highlight formatting`
+4. `docs: describe snippet output examples in README`
+
+#### Exit criteria
+
+- each `find` result includes a readable snippet,
+- matched terms are visibly highlighted,
+- output remains deterministic and test-covered.
+
+### Feature G - BM25 ranking mode
+
+#### Goal
+
+Add BM25 as an optional ranking mode alongside TF-IDF for `find`.
+
+#### Suggested branch
+
+`feature/ranking-bm25`
+
+#### Optional development flag (recommended)
+
+`find --rank tfidf|bm25` with `tfidf` as safe default until BM25 tests and docs
+are complete.
+
+#### Suggested commits
+
+1. `feat: implement BM25 scoring helper`
+2. `feat: add ranking mode selection for find command`
+3. `test: add ranking tests comparing tf-idf and bm25 ordering`
+4. `docs: explain bm25 mode and usage`
+
+#### Exit criteria
+
+- BM25 ranking is available without breaking TF-IDF,
+- ranking mode behavior is explicit and test-backed,
+- CLI usage is clear in docs/help text.
+
+### Feature H - Proximity-aware ranking bonus
+
+#### Goal
+
+Boost scores when query terms appear close together in documents.
+
+#### Suggested branch
+
+`feature/ranking-proximity-bonus`
+
+#### Optional development flag (recommended)
+
+`find --proximity-bonus on|off` so ranking impact can be validated before
+becoming default.
+
+#### Suggested commits
+
+1. `feat: compute proximity signal from positional postings`
+2. `feat: apply bounded proximity bonus to ranking score`
+3. `test: add coverage for proximity bonus ranking effects`
+4. `docs: document proximity scoring behavior`
+
+#### Exit criteria
+
+- proximity bonus improves ranking relevance for close-term matches,
+- bonus does not override primary ranking signal excessively,
+- behavior is deterministic and explainable.
+
+### Feature I - Posting list optimisation for multi-term AND queries
+
+#### Goal
+
+Speed up multi-term AND queries by intersecting posting lists in ascending
+document-frequency order.
+
+#### Suggested branch
+
+`feature/postings-intersection-optimisation`
+
+#### Optional development flag (recommended)
+
+Internal feature flag (CLI or config) for optimised AND intersection while
+verifying ordering-equivalent behaviour.
+
+#### Suggested commits
+
+1. `feat: order query terms by ascending document frequency for intersection`
+2. `refactor: centralise posting-list intersection utilities`
+3. `test: add behavioural and ordering-equivalence tests for optimised find`
+4. `perf: add lightweight query timing checks for intersection improvements`
+
+#### Exit criteria
+
+- multi-term query logic is unchanged functionally,
+- intersection work is reduced for common query shapes,
+- performance improvement is measurable on benchmark scenarios.
+
+### Feature J - Benchmarking and complexity/performance summary
+
+#### Goal
+
+Provide reproducible performance/complexity evidence for build, load, and
+query operations.
+
+#### Suggested branch
+
+`feature/benchmarking-summary`
+
+#### Suggested commits
+
+1. `feat: add benchmark harness for build load and query timings`
+2. `feat: report tf-idf vs bm25 and phrase/proximity query timings`
+3. `feat: include index size and corpus stats in benchmark summary`
+4. `docs: add performance report template and interpretation notes`
+
+#### Exit criteria
+
+- benchmark commands are reproducible and documented,
+- timing reports include build/load/query comparisons,
+- index-size and corpus statistics are captured in summary output.
+
+## Recommended implementation order
+
+1. Feature I (query engine efficiency baseline)
+2. Feature G (alternative ranking model)
+3. Feature H (ranking quality refinement)
+4. Feature F (user-visible relevance UX)
+5. Feature J (final performance and complexity evidence)
+
+## Final Polish Gate (Non-Lettered)
+
+This is required before final submission and sits across all advanced work.
+
+### 1. Professional-grade testing
+
+- strong unit tests across crawler, parser, indexer, search, and ranking paths
+- integration tests for build/load/print/find end-to-end behaviour
+- mocked crawler tests for deterministic network and failure scenarios
+- ranking tests (TF-IDF, BM25, proximity impact)
+- phrase and suggestion tests
+- coverage reporting in CI with stable thresholds
+- automated pipeline that runs lint, tests, and coverage on PRs
+
+### 2. Publication-quality code
+
+- complete and consistent type hints
+- clear docstrings for modules and non-trivial functions
+- clean architecture boundaries (crawl, parse, index, store, search, rank)
+- small focused functions and minimal duplication
+- consistent naming and formatting standards
+- avoid hidden coupling and keep modules independently testable
+
+### 3. README quality
+
+README should read like a polished open-source project and include:
+
+- project overview and architecture
+- installation and run instructions
+- command usage and examples
+- core and advanced feature list
+- benchmark/performance summary
+- testing instructions and CI notes
+- design decisions and tradeoff rationale
+
+### Polish exit criteria
+
+- all polish sections above are demonstrably complete,
+- codebase is presentation-ready for demo and marking,
+- documentation and tests support claims made in the video/report.
+
+## Suggested Rule for New Advanced Features
+
+For each new feature branch:
+
+1. define one clear goal,
+2. implement in small commits,
+3. add focused tests,
+4. update README/docs,
+5. merge only when CI is green.
