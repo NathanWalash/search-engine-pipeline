@@ -33,6 +33,16 @@ class CrawledPage:
     status_code: int
 
 
+@dataclass(frozen=True)
+class CrawlReport:
+    """Summary statistics produced by one crawl run."""
+
+    urls_discovered: int
+    urls_visited: int
+    pages_crawled: int
+    pages_failed: int
+
+
 class PoliteRequester:
     """Enforces a minimum delay between successive HTTP requests."""
 
@@ -180,7 +190,7 @@ def fetch_page(
     )
 
 
-def crawl_site_bfs(
+def _crawl_site_bfs_internal(
     start_url: str,
     *,
     allowed_domain: str,
@@ -190,14 +200,15 @@ def crawl_site_bfs(
     user_agent: str = "search-engine-pipeline/1.0",
     max_pages: Optional[int] = None,
     progress_callback: Optional[Callable[[str], None]] = None,
-) -> list[CrawledPage]:
-    """Crawl internal pages from start_url using BFS traversal."""
+) -> tuple[list[CrawledPage], CrawlReport]:
+    """Crawl internal pages from start_url and collect crawl statistics."""
     fetcher = requester or PoliteRequester(min_delay_seconds=min_delay_seconds)
     progress = progress_callback or (lambda message: None)
     queue: deque[str] = deque([start_url])
     visited: set[str] = set()
     scheduled: set[str] = {start_url}
     crawled_pages: list[CrawledPage] = []
+    pages_failed = 0
 
     while queue:
         if max_pages is not None and len(crawled_pages) >= max_pages:
@@ -216,6 +227,7 @@ def crawl_site_bfs(
             )
         except Exception as exc:  # pragma: no cover - defensive guard
             LOGGER.warning("Crawler fetch raised for %s: %s", url, exc)
+            pages_failed += 1
             continue
 
         if not result.ok:
@@ -224,6 +236,7 @@ def crawl_site_bfs(
                 url,
                 result.error or "unknown error",
             )
+            pages_failed += 1
             continue
 
         status_code = result.status_code if result.status_code is not None else 200
@@ -252,4 +265,59 @@ def crawl_site_bfs(
             queue.append(link)
             scheduled.add(link)
 
-    return crawled_pages
+    report = CrawlReport(
+        urls_discovered=len(scheduled),
+        urls_visited=len(visited),
+        pages_crawled=len(crawled_pages),
+        pages_failed=pages_failed,
+    )
+    return crawled_pages, report
+
+
+def crawl_site_bfs(
+    start_url: str,
+    *,
+    allowed_domain: str,
+    requester: Optional[PoliteRequester] = None,
+    min_delay_seconds: float = 6.0,
+    timeout_seconds: float = 10.0,
+    user_agent: str = "search-engine-pipeline/1.0",
+    max_pages: Optional[int] = None,
+    progress_callback: Optional[Callable[[str], None]] = None,
+) -> list[CrawledPage]:
+    """Crawl internal pages from start_url using BFS traversal."""
+    pages, _ = _crawl_site_bfs_internal(
+        start_url,
+        allowed_domain=allowed_domain,
+        requester=requester,
+        min_delay_seconds=min_delay_seconds,
+        timeout_seconds=timeout_seconds,
+        user_agent=user_agent,
+        max_pages=max_pages,
+        progress_callback=progress_callback,
+    )
+    return pages
+
+
+def crawl_site_bfs_with_report(
+    start_url: str,
+    *,
+    allowed_domain: str,
+    requester: Optional[PoliteRequester] = None,
+    min_delay_seconds: float = 6.0,
+    timeout_seconds: float = 10.0,
+    user_agent: str = "search-engine-pipeline/1.0",
+    max_pages: Optional[int] = None,
+    progress_callback: Optional[Callable[[str], None]] = None,
+) -> tuple[list[CrawledPage], CrawlReport]:
+    """Crawl internal pages and return both pages and crawl report."""
+    return _crawl_site_bfs_internal(
+        start_url,
+        allowed_domain=allowed_domain,
+        requester=requester,
+        min_delay_seconds=min_delay_seconds,
+        timeout_seconds=timeout_seconds,
+        user_agent=user_agent,
+        max_pages=max_pages,
+        progress_callback=progress_callback,
+    )

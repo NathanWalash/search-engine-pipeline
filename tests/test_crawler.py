@@ -296,3 +296,37 @@ def test_crawl_site_bfs_uses_custom_min_delay_when_requester_not_provided(
 
     assert len(pages) == 1
     assert created_delays == [1.5]
+
+
+def test_crawl_site_bfs_with_report_tracks_discovered_and_failed_pages() -> None:
+    start = "https://quotes.toscrape.com/"
+    missing = "https://quotes.toscrape.com/missing/"
+    responses = {
+        start: crawler.FetchResult(
+            url=start,
+            ok=True,
+            status_code=200,
+            content='<a href="/missing/">broken</a>',
+            error=None,
+        ),
+        missing: crawler.FetchResult(
+            url=missing,
+            ok=False,
+            status_code=404,
+            content="",
+            error="HTTP 404",
+        ),
+    }
+    requester = _FakeRequester(responses)
+
+    pages, report = crawler.crawl_site_bfs_with_report(
+        start,
+        allowed_domain="quotes.toscrape.com",
+        requester=requester,  # type: ignore[arg-type]
+    )
+
+    assert [page.url for page in pages] == [start]
+    assert report.urls_discovered == 2
+    assert report.urls_visited == 2
+    assert report.pages_crawled == 1
+    assert report.pages_failed == 1

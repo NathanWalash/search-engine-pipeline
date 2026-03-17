@@ -7,7 +7,7 @@ import uuid
 import src.build_pipeline as build_pipeline
 import src.main as main_module
 from src.build_pipeline import run_build_pipeline
-from src.crawler import CrawledPage
+from src.crawler import CrawlReport, CrawledPage
 from src.main import handle_command
 from src.storage import load_index, save_index
 
@@ -35,11 +35,20 @@ def test_build_load_print_find_workflow(monkeypatch) -> None:
         ),
     ]
 
-    def fake_crawl_site_bfs(*args, **kwargs):
+    def fake_crawl_site_bfs_with_report(*args, **kwargs):
         del args, kwargs
-        return pages
+        return pages, CrawlReport(
+            urls_discovered=2,
+            urls_visited=2,
+            pages_crawled=2,
+            pages_failed=0,
+        )
 
-    monkeypatch.setattr(build_pipeline, "crawl_site_bfs", fake_crawl_site_bfs)
+    monkeypatch.setattr(
+        build_pipeline,
+        "crawl_site_bfs_with_report",
+        fake_crawl_site_bfs_with_report,
+    )
 
     try:
         build_context = main_module.CLIContext()
