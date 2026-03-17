@@ -158,3 +158,66 @@ def test_find_output_includes_tfidf_score() -> None:
 
     assert should_exit is False
     assert "score=" in message
+
+
+def test_find_phrase_query_matches_exact_order_only() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends", "forever"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["friends", "good", "forever"],
+    )
+    context = main_module.CLIContext(index=index)
+
+    message, should_exit = handle_command('find "good friends"', context=context)
+
+    assert should_exit is False
+    assert 'Query: "good friends"' in message
+    assert "Matches: 1" in message
+    assert "https://quotes.toscrape.com/page/1/" in message
+    assert "https://quotes.toscrape.com/page/2/" not in message
+
+
+def test_find_phrase_query_combines_with_term_filter() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends", "truth"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["good", "friends"],
+    )
+    context = main_module.CLIContext(index=index)
+
+    message, should_exit = handle_command(
+        'find "good friends" truth',
+        context=context,
+    )
+
+    assert should_exit is False
+    assert "Matches: 1" in message
+    assert "https://quotes.toscrape.com/page/1/" in message
+    assert "https://quotes.toscrape.com/page/2/" not in message
+
+
+def test_find_phrase_query_returns_no_matches_for_non_contiguous_terms() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "kind", "friends"],
+    )
+    context = main_module.CLIContext(index=index)
+
+    message, should_exit = handle_command('find "good friends"', context=context)
+
+    assert should_exit is False
+    assert message == "No matching pages found."

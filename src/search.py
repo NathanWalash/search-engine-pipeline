@@ -1,9 +1,11 @@
 """Query helpers for term lookup and result formatting."""
 
 from dataclasses import dataclass
+import re
 from typing import Optional, Sequence
 
 from src.indexer import InvertedIndex
+from src.parser import tokenize
 from src.ranking import score_document_tfidf
 
 
@@ -36,6 +38,19 @@ class QueryMatchView:
     relevance_score: float
 
 
+@dataclass(frozen=True)
+class ParsedFindQuery:
+    """Normalized representation of a find query."""
+
+    terms: list[str]
+    phrases: list[list[str]]
+    scoring_terms: list[str]
+    display_query: str
+
+
+QUERY_COMPONENT_PATTERN = re.compile(r'"([^"]+)"|(\S+)')
+
+
 def _normalize_query_terms(query_terms: Sequence[str]) -> list[str]:
     """Lowercase and de-duplicate query terms while preserving order."""
     normalized: list[str] = []
@@ -47,6 +62,124 @@ def _normalize_query_terms(query_terms: Sequence[str]) -> list[str]:
         seen.add(lowered)
         normalized.append(lowered)
     return normalized
+
+
+def _parse_find_query(query_terms: Sequence[str]) -> ParsedFindQuery:
+    """Parse plain terms and quoted phrases from a find query."""
+    raw_query = " ".join(query_terms).strip()
+    collected_terms: list[str] = []
+    collected_phrases: list[list[str]] = []
+    display_parts: list[str] = []
+    seen_display_terms: set[str] = set()
+    seen_display_phrases: set[tuple[str, ...]] = set()
+
+    for match in QUERY_COMPONENT_PATTERN.finditer(raw_query):
+        phrase_raw, token_raw = match.groups()
+        if phrase_raw is not None:
+            phrase_tokens = tokenize(phrase_raw)
+            if not phrase_tokens:
+                continue
+            collected_phrases.append(phrase_tokens)
+            phrase_key = tuple(phrase_tokens)
+            if phrase_key not in seen_display_phrases:
+                display_parts.append(f"\"{' '.join(phrase_tokens)}\"")
+                seen_display_phrases.add(phrase_key)
+            continue
+
+        if token_raw is None:
+            continue
+
+        for term in tokenize(token_raw):
+            collected_terms.append(term)
+            if term not in seen_display_terms:
+                display_parts.append(term)
+                seen_display_terms.add(term)
+
+    normalized_terms = _normalize_query_terms(collected_terms)
+    normalized_phrases: list[list[str]] = []
+    seen_phrases: set[tuple[str, ...]] = set()
+    for phrase_tokens in collected_phrases:
+        phrase_key = tuple(phrase_tokens)
+        if phrase_key in seen_phrases:
+            continue
+        seen_phrases.add(phrase_key)
+        normalized_phrases.append(phrase_tokens)
+
+    phrase_terms = [term for phrase in normalized_phrases for term in phrase]
+    scoring_terms = _normalize_query_terms([*normalized_terms, *phrase_terms])
+    return ParsedFindQuery(
+        terms=normalized_terms,
+        phrases=normalized_phrases,
+        scoring_terms=scoring_terms,
+        display_query=" ".join(display_parts),
+    )
+
+
+def _document_contains_phrase(
+    index: InvertedIndex,
+    *,
+    document_id: str,
+    phrase_tokens: Sequence[str],
+) -> bool:
+    """Return whether phrase_tokens occur contiguously in a document."""
+    if not phrase_tokens:
+        return False
+
+    position_sets: list[set[int]] = []
+    for term in phrase_tokens:
+        term_record = index.terms.get(term)
+        if term_record is None:
+            return False
+        posting = term_record.postings.get(document_id)
+        if posting is None:
+            return False
+        position_sets.append(set(posting.positions))
+
+    first_positions = position_sets[0]
+    for start_position in first_positions:
+        if all(
+            (start_position + offset) in position_sets[offset]
+            for offset in range(1, len(position_sets))
+        ):
+            return True
+    return False
+
+
+def _find_phrase_document_ids(
+    index: InvertedIndex,
+    *,
+    phrase_tokens: Sequence[str],
+    candidate_document_ids: Optional[set[str]] = None,
+) -> set[str]:
+    """Return document IDs that satisfy one exact phrase."""
+    if not phrase_tokens:
+        return set()
+
+    first_term_record = index.terms.get(phrase_tokens[0])
+    if first_term_record is None:
+        return set()
+
+    matching_ids = set(first_term_record.postings.keys())
+    if candidate_document_ids is not None:
+        matching_ids &= candidate_document_ids
+
+    for term in phrase_tokens[1:]:
+        term_record = index.terms.get(term)
+        if term_record is None:
+            return set()
+        matching_ids &= set(term_record.postings.keys())
+        if not matching_ids:
+            return set()
+
+    return {
+        document_id
+        for document_id in matching_ids
+        if _document_contains_phrase(
+            index,
+            document_id=document_id,
+            phrase_tokens=phrase_tokens,
+        )
+    }
 
 
 def lookup_term(index: InvertedIndex, raw_term: str) -> Optional[TermLookupView]:
@@ -99,21 +232,41 @@ def find_and_match_documents(
     index: InvertedIndex,
     query_terms: Sequence[str],
 ) -> list[QueryMatchView]:
-    """Return documents that contain all query terms (AND semantics)."""
-    normalized_terms = _normalize_query_terms(query_terms)
-    if not normalized_terms:
+    """Return documents that satisfy AND terms and optional quoted phrases."""
+    parsed_query = _parse_find_query(query_terms)
+    if not parsed_query.terms and not parsed_query.phrases:
         return []
 
-    term_records = []
-    for term in normalized_terms:
+    matching_document_ids: Optional[set[str]] = None
+    for term in parsed_query.terms:
         term_record = index.terms.get(term)
         if term_record is None:
             return []
-        term_records.append((term, term_record))
+        term_document_ids = set(term_record.postings.keys())
+        if matching_document_ids is None:
+            matching_document_ids = term_document_ids
+        else:
+            matching_document_ids &= term_document_ids
+        if not matching_document_ids:
+            return []
 
-    matching_document_ids = set(term_records[0][1].postings.keys())
-    for _, term_record in term_records[1:]:
-        matching_document_ids &= set(term_record.postings.keys())
+    for phrase_tokens in parsed_query.phrases:
+        phrase_document_ids = _find_phrase_document_ids(
+            index,
+            phrase_tokens=phrase_tokens,
+            candidate_document_ids=matching_document_ids,
+        )
+        if not phrase_document_ids:
+            return []
+        if matching_document_ids is None:
+            matching_document_ids = phrase_document_ids
+        else:
+            matching_document_ids &= phrase_document_ids
+        if not matching_document_ids:
+            return []
+
+    if not matching_document_ids:
+        return []
 
     matches: list[QueryMatchView] = []
     for document_id in sorted(matching_document_ids):
@@ -121,10 +274,16 @@ def find_and_match_documents(
         if document is None:
             continue
 
-        term_frequencies = {
-            term: term_record.postings[document_id].term_frequency
-            for term, term_record in term_records
-        }
+        term_frequencies: dict[str, int] = {}
+        for term in parsed_query.scoring_terms:
+            term_record = index.terms.get(term)
+            if term_record is None:
+                continue
+            posting = term_record.postings.get(document_id)
+            if posting is None:
+                continue
+            term_frequencies[term] = posting.term_frequency
+
         matches.append(
             QueryMatchView(
                 document_id=document_id,
@@ -133,7 +292,7 @@ def find_and_match_documents(
                 relevance_score=score_document_tfidf(
                     index,
                     document_id=document_id,
-                    query_terms=normalized_terms,
+                    query_terms=parsed_query.scoring_terms,
                 ),
             )
         )
@@ -146,8 +305,9 @@ def find_and_match_documents(
 
 def format_find_results(query_terms: Sequence[str], matches: Sequence[QueryMatchView]) -> str:
     """Render AND query matches as user-facing text output."""
-    normalized_terms = _normalize_query_terms(query_terms)
-    lines = [f"Query: {' '.join(normalized_terms)}", f"Matches: {len(matches)}"]
+    parsed_query = _parse_find_query(query_terms)
+    query_display = parsed_query.display_query
+    lines = [f"Query: {query_display}", f"Matches: {len(matches)}"]
 
     for match in matches:
         term_stats = ", ".join(
