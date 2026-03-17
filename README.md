@@ -14,7 +14,7 @@ Core roadmap phases (1-10) are implemented, including:
 - index save/load
 - `print` and `find` query commands
 - integration and edge-case tests
-- CI-based automated test runs
+- CI checks for lint, type-checking, and coverage-gated tests
 
 Implemented advanced features:
 
@@ -23,6 +23,11 @@ Implemented advanced features:
 - query suggestions (`Did you mean`)
 - crawl statistics reporting
 - smarter tokenisation for apostrophes and hyphenated words
+
+Roadmap planning docs are split into:
+
+- `docs/CORE_ROADMAP.md`
+- `docs/ADVANCED_ROADMAP.md`
 
 ## Installation
 
@@ -93,6 +98,10 @@ Load a previously saved index from `data/index.json`.
 search> load
 ```
 
+Submission note: `data/index.json` is treated as a generated artifact and is
+git-ignored during development. For final submission, generate a fresh index
+and include the compiled index file as required by the coursework brief.
+
 ### `print <word>`
 
 Display one term entry from the inverted index.
@@ -143,10 +152,23 @@ Run with concise output:
 python -m pytest -q
 ```
 
+Run lint checks:
+
+```bash
+python -m ruff check src tests
+```
+
+Run static type checks:
+
+```bash
+python -m mypy src
+```
+
 Coverage reporting is configured in `pytest.ini` and includes:
 
 - terminal coverage summary
 - `coverage.xml` output for CI artifacts
+- minimum coverage threshold (`--cov-fail-under=95`)
 
 ## Architecture
 
@@ -192,6 +214,8 @@ search-engine-pipeline/
   data/
   docs/
     ROADMAP.md
+    CORE_ROADMAP.md
+    ADVANCED_ROADMAP.md
     SPECIFICATION.md
   .github/workflows/ci.yml
   README.md

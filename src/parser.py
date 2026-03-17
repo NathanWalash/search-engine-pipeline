@@ -54,7 +54,7 @@ def _extract_text_with_stdlib(html: str) -> str:
 def extract_text(html: str) -> str:
     """Extract visible text content from raw HTML."""
     try:
-        from bs4 import BeautifulSoup  # type: ignore
+        from bs4 import BeautifulSoup
     except ModuleNotFoundError:
         return _extract_text_with_stdlib(html)
 

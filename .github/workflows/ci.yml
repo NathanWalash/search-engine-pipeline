@@ -33,7 +33,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run unit tests with coverage
+      - name: Run lint checks
+        run: |
+          python -m ruff check src tests
+
+      - name: Run type checks
+        run: |
+          python -m mypy src
+
+      - name: Run unit tests with coverage threshold
         run: |
           python -m pytest
 
