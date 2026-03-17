@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 import re
 
-TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+BASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+(?:['-][a-z0-9]+)*")
 TokenPosition = tuple[str, int]
 
 
@@ -65,14 +65,58 @@ def extract_text(html: str) -> str:
     return soup.get_text(separator=" ", strip=True)
 
 
-def tokenize(text: str) -> list[str]:
-    """Return lowercase word tokens with punctuation removed."""
-    return TOKEN_PATTERN.findall(text.lower())
+def _iter_base_tokens(text: str) -> list[str]:
+    """Return normalized base tokens preserving internal apostrophes/hyphens."""
+    return [match.group(0) for match in BASE_TOKEN_PATTERN.finditer(text.lower())]
 
 
-def tokenize_with_positions(text: str) -> list[TokenPosition]:
-    """Return lowercase tokens paired with token-order positions."""
-    return [(token, index) for index, token in enumerate(tokenize(text))]
+def _expand_token(base_token: str, *, expand_hyphenated: bool) -> list[str]:
+    """Return one base token plus optional split components."""
+    emitted = [base_token]
+    if not expand_hyphenated or "-" not in base_token:
+        return emitted
+
+    emitted.extend(part for part in base_token.split("-") if part)
+    return emitted
+
+
+def tokenize_with_positions(
+    text: str,
+    *,
+    expand_hyphenated: bool = True,
+) -> list[TokenPosition]:
+    """Return normalized tokens with base-token positions.
+
+    For hyphenated tokens, canonical and split terms share the same position.
+    """
+    token_positions: list[TokenPosition] = []
+    for base_position, base_token in enumerate(_iter_base_tokens(text)):
+        expanded_tokens = _expand_token(
+            base_token,
+            expand_hyphenated=expand_hyphenated,
+        )
+        for token in expanded_tokens:
+            token_positions.append((token, base_position))
+    return token_positions
+
+
+def tokenize(
+    text: str,
+    *,
+    expand_hyphenated: bool = True,
+) -> list[str]:
+    """Return normalized tokens.
+
+    Apostrophes inside words are preserved.
+    Hyphenated tokens can emit canonical+split forms.
+    """
+    return [
+        token
+        for token, _ in tokenize_with_positions(
+            text,
+            expand_hyphenated=expand_hyphenated,
+        )
+    ]
 
 
 def extract_tokens_from_html(html: str) -> list[str]:
@@ -90,8 +134,8 @@ def extract_tokens_with_positions_from_html(
 def parse_html(html: str) -> ParsedDocument:
     """Extract text and return all normalized parser outputs together."""
     text = extract_text(html)
-    tokens = tokenize(text)
-    token_positions = [(token, index) for index, token in enumerate(tokens)]
+    token_positions = tokenize_with_positions(text, expand_hyphenated=True)
+    tokens = [token for token, _ in token_positions]
     return ParsedDocument(
         text=text,
         tokens=tokens,

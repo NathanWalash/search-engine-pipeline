@@ -31,9 +31,31 @@ def test_extract_text_ignores_script_and_style_content() -> None:
     assert text == "Hello World"
 
 
-def test_tokenize_lowercases_and_strips_punctuation() -> None:
-    text = "Friend, GOOD! truth... don't-stop 123"
-    assert tokenize(text) == ["friend", "good", "truth", "don", "t", "stop", "123"]
+def test_tokenize_preserves_internal_apostrophes() -> None:
+    text = "Don't panic. It's okay. 'Friends,' friends'"
+    assert tokenize(text, expand_hyphenated=False) == [
+        "don't",
+        "panic",
+        "it's",
+        "okay",
+        "friends",
+        "friends",
+    ]
+
+
+def test_tokenize_hyphenated_tokens_emit_canonical_and_split_forms() -> None:
+    text = "well-known state-of-the-art ---test---"
+    assert tokenize(text) == [
+        "well-known",
+        "well",
+        "known",
+        "state-of-the-art",
+        "state",
+        "of",
+        "the",
+        "art",
+        "test",
+    ]
 
 
 def test_extract_tokens_from_empty_html_returns_empty_list() -> None:
@@ -49,6 +71,15 @@ def test_tokenize_with_positions_tracks_token_order() -> None:
         ("alpha", 0),
         ("beta", 1),
         ("alpha", 2),
+    ]
+
+
+def test_tokenize_with_positions_shares_base_position_for_hyphen_splits() -> None:
+    assert tokenize_with_positions("well-known author") == [
+        ("well-known", 0),
+        ("well", 0),
+        ("known", 0),
+        ("author", 1),
     ]
 
 

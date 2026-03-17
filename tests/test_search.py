@@ -5,6 +5,7 @@ import pytest
 import src.main as main_module
 from src.indexer import create_inverted_index
 from src.main import handle_command
+from src.parser import parse_html
 from src.search import (
     find_and_match_documents,
     suggest_closest_term,
@@ -260,3 +261,36 @@ def test_suggest_query_terms_includes_phrase_tokens() -> None:
     suggestions = suggest_query_terms(index, ['"godo friends"'])
 
     assert suggestions == {"godo": "good"}
+
+
+def test_hyphenated_indexing_supports_exact_and_split_queries() -> None:
+    index = create_inverted_index()
+    parsed_hyphenated = parse_html("<p>well-known author</p>")
+    parsed_split = parse_html("<p>well known writer</p>")
+    index.add_document(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        token_positions=parsed_hyphenated.token_positions,
+    )
+    index.add_document(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        token_positions=parsed_split.token_positions,
+    )
+    context = main_module.CLIContext(index=index)
+
+    exact_message, _ = handle_command("find well-known", context=context)
+    split_message, _ = handle_command("find well known", context=context)
+    single_message, _ = handle_command("find known", context=context)
+
+    assert "Matches: 1" in exact_message
+    assert "https://quotes.toscrape.com/page/1/" in exact_message
+    assert "https://quotes.toscrape.com/page/2/" not in exact_message
+
+    assert "Matches: 2" in split_message
+    assert "https://quotes.toscrape.com/page/1/" in split_message
+    assert "https://quotes.toscrape.com/page/2/" in split_message
+
+    assert "Matches: 2" in single_message
+    assert "https://quotes.toscrape.com/page/1/" in single_message
+    assert "https://quotes.toscrape.com/page/2/" in single_message
