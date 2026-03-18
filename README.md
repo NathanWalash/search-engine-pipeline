@@ -21,6 +21,7 @@ Implemented advanced features:
 - TF-IDF result ranking
 - BM25 ranking mode (`find --rank bm25`)
 - proximity-aware ranking bonus (`find --proximity-bonus on`)
+- result snippets with matched-term highlighting (`find --snippets on`)
 - quoted phrase search
 - query suggestions (`Did you mean`)
 - crawl statistics reporting
@@ -62,7 +63,7 @@ search>
 - `build`
 - `load`
 - `print <word>`
-- `find [--rank tfidf|bm25] [--proximity-bonus on|off] <query>`
+- `find [--rank tfidf|bm25] [--proximity-bonus on|off] [--snippets on|off] <query>`
 
 ### `build`
 
@@ -119,6 +120,8 @@ Run case-insensitive AND search across all query terms.
 Matched documents are ranked by TF-IDF by default, or BM25 with `--rank bm25`.
 Optional proximity bonus (`--proximity-bonus on`) boosts documents where
 query terms occur close together.
+Optional snippets (`--snippets on`) include a short context window with
+matched terms highlighted in `[]`.
 Quoted phrases are supported using positional matching.
 Misspelled terms can return a `Did you mean` suggestion.
 Multi-term AND intersections are optimized by processing rarer terms first.
@@ -127,6 +130,7 @@ Multi-term AND intersections are optimized by processing rarer terms first.
 search> find good friends
 search> find --rank bm25 good friends
 search> find --proximity-bonus on good friends
+search> find --snippets on good friends
 search> find "good friends"
 search> find well-known
 search> find well known

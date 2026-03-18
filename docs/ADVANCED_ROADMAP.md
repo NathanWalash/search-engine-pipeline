@@ -15,6 +15,7 @@ Last updated: 2026-03-18
 7. Feature I - posting-list optimisation for AND queries - complete
 8. Feature G - BM25 ranking mode - complete
 9. Feature H - proximity-aware ranking bonus - complete
+10. Feature F - result snippets with matched-term highlighting - complete
 
 ## Advanced Features Completed
 
@@ -73,38 +74,18 @@ Last updated: 2026-03-18
 - `find` now accepts `--proximity-bonus on|off` (`off` remains default)
 - tests cover proximity signal and ranking impact when bonus is enabled
 
-## Next Planned Feature Queue (F, J)
+### Feature F - Result Snippets with Matched-Term Highlighting
+
+- optional snippet output added for `find` via `--snippets on|off`
+- snippet generation uses deterministic token windows around first match
+- matched terms are highlighted in `[]` (including hyphen-aware highlighting)
+- document text is now stored in index payload for snippet rendering after load
+- tests cover snippet flag parsing, output formatting, and edge boundaries
+
+## Next Planned Feature Queue (J)
 
 Implementation note: keep features behind small rollout controls while
 developing, then switch defaults once validated.
-
-### Feature F - Result snippets with matched-term highlighting
-
-#### Goal
-
-Improve `find` output readability by showing short text snippets and
-highlighting matched terms.
-
-#### Suggested branch
-
-`feature/result-snippets-highlighting`
-
-#### Optional development flag (recommended)
-
-`find --snippets on|off` (or equivalent config flag) to enable gradual rollout.
-
-#### Suggested commits
-
-1. `feat: generate context snippets for find query matches`
-2. `feat: highlight matched query terms in snippets`
-3. `test: add coverage for snippet boundaries and highlight formatting`
-4. `docs: describe snippet output examples in README`
-
-#### Exit criteria
-
-- each `find` result includes a readable snippet,
-- matched terms are visibly highlighted,
-- output remains deterministic and test-covered.
 
 ### Feature J - Benchmarking and complexity/performance summary
 
@@ -132,8 +113,7 @@ query operations.
 
 ## Recommended implementation order
 
-1. Feature F (user-visible relevance UX)
-2. Feature J (final performance and complexity evidence)
+1. Feature J (final performance and complexity evidence)
 
 ## Final Polish Gate (Non-Lettered)
 
