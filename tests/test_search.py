@@ -176,6 +176,19 @@ def test_find_output_supports_bm25_ranking_flag() -> None:
     assert "score=" in message
 
 
+def test_find_output_supports_proximity_bonus_flag() -> None:
+    context = _make_context_with_index()
+    message, should_exit = handle_command(
+        "find --proximity-bonus on good friends",
+        context=context,
+    )
+
+    assert should_exit is False
+    assert "Query: good friends" in message
+    assert "Matches: 1" in message
+    assert "score=" in message
+
+
 def test_find_phrase_query_matches_exact_order_only() -> None:
     index = create_inverted_index()
     index.add_document_terms(
@@ -422,3 +435,34 @@ def test_find_rejects_unsupported_ranking_mode() -> None:
 
     with pytest.raises(ValueError, match="Unsupported ranking mode"):
         find_and_match_documents(index, ["good"], ranking_mode="bad-mode")  # type: ignore[arg-type]
+
+
+def test_find_proximity_bonus_prefers_close_term_matches() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends", "truth"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["good"] + (["filler"] * 20) + ["friends"],
+    )
+
+    without_bonus = find_and_match_documents(
+        index,
+        ["good", "friends"],
+        proximity_bonus=False,
+    )
+    with_bonus = find_and_match_documents(
+        index,
+        ["good", "friends"],
+        proximity_bonus=True,
+    )
+
+    assert without_bonus[0].relevance_score == pytest.approx(
+        without_bonus[1].relevance_score
+    )
+    assert with_bonus[0].document_id == "doc1"
+    assert with_bonus[0].relevance_score > with_bonus[1].relevance_score

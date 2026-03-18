@@ -14,6 +14,7 @@ Last updated: 2026-03-18
 6. Non-feature hardening pass (CI/testing/code-quality baseline) - complete
 7. Feature I - posting-list optimisation for AND queries - complete
 8. Feature G - BM25 ranking mode - complete
+9. Feature H - proximity-aware ranking bonus - complete
 
 ## Advanced Features Completed
 
@@ -66,7 +67,13 @@ Last updated: 2026-03-18
 - `find` now accepts `--rank tfidf|bm25` (`tfidf` remains the default)
 - tests cover ranking-mode selection and BM25 scoring behavior
 
-## Next Planned Feature Queue (F, H, J)
+### Feature H - Proximity-aware Ranking Bonus
+
+- optional bounded proximity bonus added to ranking
+- `find` now accepts `--proximity-bonus on|off` (`off` remains default)
+- tests cover proximity signal and ranking impact when bonus is enabled
+
+## Next Planned Feature Queue (F, J)
 
 Implementation note: keep features behind small rollout controls while
 developing, then switch defaults once validated.
@@ -99,34 +106,6 @@ highlighting matched terms.
 - matched terms are visibly highlighted,
 - output remains deterministic and test-covered.
 
-### Feature H - Proximity-aware ranking bonus
-
-#### Goal
-
-Boost scores when query terms appear close together in documents.
-
-#### Suggested branch
-
-`feature/ranking-proximity-bonus`
-
-#### Optional development flag (recommended)
-
-`find --proximity-bonus on|off` so ranking impact can be validated before
-becoming default.
-
-#### Suggested commits
-
-1. `feat: compute proximity signal from positional postings`
-2. `feat: apply bounded proximity bonus to ranking score`
-3. `test: add coverage for proximity bonus ranking effects`
-4. `docs: document proximity scoring behavior`
-
-#### Exit criteria
-
-- proximity bonus improves ranking relevance for close-term matches,
-- bonus does not override primary ranking signal excessively,
-- behavior is deterministic and explainable.
-
 ### Feature J - Benchmarking and complexity/performance summary
 
 #### Goal
@@ -153,9 +132,8 @@ query operations.
 
 ## Recommended implementation order
 
-1. Feature H (ranking quality refinement)
-2. Feature F (user-visible relevance UX)
-3. Feature J (final performance and complexity evidence)
+1. Feature F (user-visible relevance UX)
+2. Feature J (final performance and complexity evidence)
 
 ## Final Polish Gate (Non-Lettered)
 

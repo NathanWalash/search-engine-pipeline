@@ -16,15 +16,15 @@ Last updated: 2026-03-18
 
 ### Advanced
 
-- Status: A-E, G, and I complete; hardening baseline complete; F/H/J planned
-- Completed features: A through E, G, and I
+- Status: A-E, G, H, and I complete; hardening baseline complete; F/J planned
+- Completed features: A through E, G, H, and I
 - Completed non-feature phase: CI/testing/code-quality baseline hardening
-- Planned next features: F, H, and J
+- Planned next features: F and J
 - Cross-cutting requirement: final polish gate for final submission pass
 
 ## Current Position
 
 The original roadmap phases are complete.
 The next delivery step is to execute the planned advanced queue in
-`ADVANCED_ROADMAP.md` (Features F, H, and J), then complete the non-lettered
+`ADVANCED_ROADMAP.md` (Features F and J), then complete the non-lettered
 final polish gate.

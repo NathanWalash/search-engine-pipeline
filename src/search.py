@@ -6,7 +6,12 @@ from typing import Literal, Mapping, Optional, Sequence
 
 from src.indexer import InvertedIndex, TermRecord
 from src.parser import tokenize
-from src.ranking import score_document_bm25, score_document_tfidf
+from src.ranking import (
+    apply_proximity_bonus,
+    proximity_signal,
+    score_document_bm25,
+    score_document_tfidf,
+)
 
 RankingMode = Literal["tfidf", "bm25"]
 SUPPORTED_RANKING_MODES: set[RankingMode] = {"tfidf", "bm25"}
@@ -235,19 +240,32 @@ def _score_document_by_mode(
     document_id: str,
     query_terms: Sequence[str],
     ranking_mode: RankingMode,
+    proximity_bonus: bool = False,
 ) -> float:
     """Return document score according to selected ranking mode."""
+    base_score = 0.0
     if ranking_mode == "bm25":
-        return score_document_bm25(
+        base_score = score_document_bm25(
             index,
             document_id=document_id,
             query_terms=query_terms,
         )
-    return score_document_tfidf(
+    else:
+        base_score = score_document_tfidf(
+            index,
+            document_id=document_id,
+            query_terms=query_terms,
+        )
+
+    if not proximity_bonus:
+        return base_score
+
+    proximity = proximity_signal(
         index,
         document_id=document_id,
         query_terms=query_terms,
     )
+    return apply_proximity_bonus(base_score, proximity=proximity)
 
 
 def _document_contains_phrase(
@@ -368,6 +386,7 @@ def find_and_match_documents(
     query_terms: Sequence[str],
     *,
     ranking_mode: RankingMode = "tfidf",
+    proximity_bonus: bool = False,
 ) -> list[QueryMatchView]:
     """Return documents that satisfy AND terms and optional quoted phrases."""
     if ranking_mode not in SUPPORTED_RANKING_MODES:
@@ -434,6 +453,7 @@ def find_and_match_documents(
                     document_id=document_id,
                     query_terms=parsed_query.scoring_terms,
                     ranking_mode=ranking_mode,
+                    proximity_bonus=proximity_bonus,
                 ),
             )
         )
