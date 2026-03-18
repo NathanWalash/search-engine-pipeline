@@ -23,6 +23,7 @@ Implemented advanced features:
 - query suggestions (`Did you mean`)
 - crawl statistics reporting
 - smarter tokenisation for apostrophes and hyphenated words
+- posting-list optimisation for multi-term AND queries
 
 Roadmap planning docs are split into:
 
@@ -116,6 +117,7 @@ Run case-insensitive AND search across all query terms.
 Matched documents are ranked by a TF-IDF style relevance score.
 Quoted phrases are supported using positional matching.
 Misspelled terms can return a `Did you mean` suggestion.
+Multi-term AND intersections are optimized by processing rarer terms first.
 
 ```text
 search> find good friends

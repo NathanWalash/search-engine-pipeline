@@ -4,7 +4,7 @@ This roadmap tracks post-core enhancements.
 
 ## Advanced Status Snapshot
 
-Last updated: 2026-03-17
+Last updated: 2026-03-18
 
 1. Feature A - TF-IDF ranking - complete
 2. Feature B - phrase search - complete
@@ -12,6 +12,7 @@ Last updated: 2026-03-17
 4. Feature D - crawl statistics report - complete
 5. Feature E - smarter tokenisation - complete
 6. Non-feature hardening pass (CI/testing/code-quality baseline) - complete
+7. Feature I - posting-list optimisation for AND queries - complete
 
 ## Advanced Features Completed
 
@@ -52,7 +53,13 @@ Last updated: 2026-03-17
 - publication-quality cleanup baseline applied (docstrings/type-hint consistency pass)
 - submission packaging clarified (`data/index.json` remains generated during development)
 
-## Next Planned Feature Queue (F-J)
+### Feature I - Posting List Optimisation for Multi-Term AND Queries
+
+- multi-term AND intersections now process terms in ascending document frequency
+- query evaluation short-circuits before high-frequency intersections when candidate set is empty
+- tests cover ordering and short-circuit behavior equivalence
+
+## Next Planned Feature Queue (F-H, J)
 
 Implementation note: keep features behind small rollout controls while
 developing, then switch defaults once validated.
@@ -141,35 +148,6 @@ becoming default.
 - bonus does not override primary ranking signal excessively,
 - behavior is deterministic and explainable.
 
-### Feature I - Posting list optimisation for multi-term AND queries
-
-#### Goal
-
-Speed up multi-term AND queries by intersecting posting lists in ascending
-document-frequency order.
-
-#### Suggested branch
-
-`feature/postings-intersection-optimisation`
-
-#### Optional development flag (recommended)
-
-Internal feature flag (CLI or config) for optimised AND intersection while
-verifying ordering-equivalent behaviour.
-
-#### Suggested commits
-
-1. `feat: order query terms by ascending document frequency for intersection`
-2. `refactor: centralise posting-list intersection utilities`
-3. `test: add behavioural and ordering-equivalence tests for optimised find`
-4. `perf: add lightweight query timing checks for intersection improvements`
-
-#### Exit criteria
-
-- multi-term query logic is unchanged functionally,
-- intersection work is reduced for common query shapes,
-- performance improvement is measurable on benchmark scenarios.
-
 ### Feature J - Benchmarking and complexity/performance summary
 
 #### Goal
@@ -196,11 +174,10 @@ query operations.
 
 ## Recommended implementation order
 
-1. Feature I (query engine efficiency baseline)
-2. Feature G (alternative ranking model)
-3. Feature H (ranking quality refinement)
-4. Feature F (user-visible relevance UX)
-5. Feature J (final performance and complexity evidence)
+1. Feature G (alternative ranking model)
+2. Feature H (ranking quality refinement)
+3. Feature F (user-visible relevance UX)
+4. Feature J (final performance and complexity evidence)
 
 ## Final Polish Gate (Non-Lettered)
 

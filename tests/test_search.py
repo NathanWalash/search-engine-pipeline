@@ -3,6 +3,7 @@
 import pytest
 
 import src.main as main_module
+import src.search as search_module
 from src.indexer import create_inverted_index
 from src.main import handle_command
 from src.parser import parse_html
@@ -294,3 +295,77 @@ def test_hyphenated_indexing_supports_exact_and_split_queries() -> None:
     assert "Matches: 2" in single_message
     assert "https://quotes.toscrape.com/page/1/" in single_message
     assert "https://quotes.toscrape.com/page/2/" in single_message
+
+
+def test_find_orders_term_intersection_by_document_frequency(monkeypatch) -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["common", "rare", "medium"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["common", "medium"],
+    )
+    index.add_document_terms(
+        document_id="doc3",
+        url="https://quotes.toscrape.com/page/3/",
+        tokens=["common"],
+    )
+
+    captured: dict[str, list[str]] = {}
+    original_intersector = search_module._intersect_term_document_ids
+
+    def spy_intersector(term_records, ordered_terms):
+        captured["ordered_terms"] = list(ordered_terms)
+        return original_intersector(term_records, ordered_terms)
+
+    monkeypatch.setattr(
+        search_module,
+        "_intersect_term_document_ids",
+        spy_intersector,
+    )
+
+    matches = find_and_match_documents(index, ["common", "rare", "medium"])
+
+    assert captured["ordered_terms"] == ["rare", "medium", "common"]
+    assert [match.document_id for match in matches] == ["doc1"]
+
+
+class _TrackingPostings(dict[str, object]):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.iter_calls = 0
+
+    def __iter__(self):  # type: ignore[override]
+        self.iter_calls += 1
+        return super().__iter__()
+
+
+def test_find_short_circuits_before_high_df_term_intersection() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["common", "rare-a"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["common", "rare-b"],
+    )
+    index.add_document_terms(
+        document_id="doc3",
+        url="https://quotes.toscrape.com/page/3/",
+        tokens=["common"],
+    )
+
+    common_tracking = _TrackingPostings(index.terms["common"].postings)
+    index.terms["common"].postings = common_tracking  # type: ignore[assignment]
+
+    matches = find_and_match_documents(index, ["common", "rare-a", "rare-b"])
+
+    assert matches == []
+    assert common_tracking.iter_calls == 0
