@@ -99,26 +99,27 @@ developing, then switch defaults once validated.
 
 ## Final Polish Gate (Non-Lettered)
 
-This is required before final submission and sits across all advanced work.
+Status: complete (2026-03-18)
 
 ### 1. Professional-grade testing
 
-- strong unit tests across crawler, parser, indexer, search, and ranking paths
+- strong unit tests across crawler, parser, indexer, search, ranking, and benchmarking paths
 - integration tests for build/load/print/find end-to-end behaviour
 - mocked crawler tests for deterministic network and failure scenarios
 - ranking tests (TF-IDF, BM25, proximity impact)
-- phrase and suggestion tests
+- phrase, suggestion, and snippet tests
 - coverage reporting in CI with stable thresholds
-- automated pipeline that runs lint, tests, and coverage on PRs
+- automated pipeline runs lint, type checks, tests, and coverage on PRs
+- final quality snapshot: 179 tests passing, 99.37% total coverage
 
 ### 2. Publication-quality code
 
-- complete and consistent type hints
-- clear docstrings for modules and non-trivial functions
-- clean architecture boundaries (crawl, parse, index, store, search, rank)
+- complete and consistent type hints across modules
+- clear docstrings for modules and key helper functions
+- clean architecture boundaries (crawl, parse, index, store, search, rank, benchmark)
 - small focused functions and minimal duplication
 - consistent naming and formatting standards
-- avoid hidden coupling and keep modules independently testable
+- modules remain independently testable with deterministic outputs
 
 ### 3. README quality
 
@@ -131,12 +132,14 @@ README should read like a polished open-source project and include:
 - benchmark/performance summary
 - testing instructions and CI notes
 - design decisions and tradeoff rationale
+- submission workflow and checklist reference
 
 ### Polish exit criteria
 
-- all polish sections above are demonstrably complete,
+- all polish sections above are complete,
 - codebase is presentation-ready for demo and marking,
-- documentation and tests support claims made in the video/report.
+- documentation and tests support claims made in the video/report,
+- submission checklist prepared in `docs/SUBMISSION_CHECKLIST.md`.
 
 ## Suggested Rule for New Advanced Features
 

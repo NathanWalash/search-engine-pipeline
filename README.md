@@ -33,6 +33,13 @@ Roadmap planning docs are split into:
 
 - `docs/CORE_ROADMAP.md`
 - `docs/ADVANCED_ROADMAP.md`
+- `docs/SUBMISSION_CHECKLIST.md`
+
+Quality snapshot (2026-03-18):
+
+- tests: `179` passing
+- total coverage: `99.37%`
+- CI gates: `ruff`, `mypy`, and `pytest` all passing
 
 ## Installation
 
@@ -198,6 +205,18 @@ Coverage reporting is configured in `pytest.ini` and includes:
 - `coverage.xml` output for CI artifacts
 - minimum coverage threshold (`--cov-fail-under=95`)
 
+## Submission Workflow
+
+For final submission:
+
+1. pull latest `main`,
+2. run `python -m ruff check src tests`,
+3. run `python -m mypy src`,
+4. run `python -m pytest -q`,
+5. generate fresh index artifact by running CLI `build`,
+6. run benchmark evidence via `benchmark --runs 5` (or more for stable numbers),
+7. verify the full checklist in `docs/SUBMISSION_CHECKLIST.md`.
+
 ## Architecture
 
 The core processing flow is:
@@ -249,6 +268,7 @@ search-engine-pipeline/
     ROADMAP.md
     CORE_ROADMAP.md
     ADVANCED_ROADMAP.md
+    SUBMISSION_CHECKLIST.md
     SPECIFICATION.md
   .github/workflows/ci.yml
   README.md
