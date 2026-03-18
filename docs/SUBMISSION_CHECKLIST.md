@@ -25,7 +25,9 @@ Record the final snapshot for report/demo notes:
 
 - run CLI: `python -m src.main`
 - execute `build`
+- execute `build --incremental`
 - confirm build summary is shown
+- confirm incremental summary includes reused/reindexed/new document counts
 - confirm index saved to `data/index.json`
 
 Submission rule:
@@ -38,6 +40,7 @@ Submission rule:
 - run CLI benchmark command: `benchmark --runs 5`
 - capture timing output for:
   - build/reindex
+  - incremental build/reuse and speedup
   - load
   - TF-IDF and BM25 query timings
   - phrase/proximity query timings

@@ -13,6 +13,7 @@ class DocumentRecord:
     url: str
     length: int = 0
     text: str = ""
+    content_hash: str = ""
 
 
 @dataclass
@@ -51,6 +52,7 @@ class InvertedIndex:
         url: str,
         token_count: int,
         text: str = "",
+        content_hash: str = "",
     ) -> None:
         if document_id in self.documents:
             raise ValueError(f"Document '{document_id}' already indexed")
@@ -59,6 +61,7 @@ class InvertedIndex:
             url=url,
             length=token_count,
             text=text,
+            content_hash=content_hash,
         )
         self.meta["page_count"] += 1
         self.meta["token_count"] += token_count
@@ -79,6 +82,7 @@ class InvertedIndex:
         url: str,
         token_positions: Sequence[TokenPosition],
         text: str = "",
+        content_hash: str = "",
     ) -> None:
         """Index one document using positional token postings."""
         self._register_document(
@@ -86,6 +90,7 @@ class InvertedIndex:
             url=url,
             token_count=len(token_positions),
             text=text,
+            content_hash=content_hash,
         )
 
         positions_by_term = self._group_positions(token_positions)
@@ -104,6 +109,7 @@ class InvertedIndex:
         url: str,
         tokens: list[str],
         text: str = "",
+        content_hash: str = "",
     ) -> None:
         """Index one document from raw tokens, inferring token positions."""
         token_positions: list[TokenPosition] = [
@@ -114,6 +120,7 @@ class InvertedIndex:
             url=url,
             token_positions=token_positions,
             text=text,
+            content_hash=content_hash,
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -121,11 +128,20 @@ class InvertedIndex:
         return {
             "meta": dict(self.meta),
             "documents": {
-                document_id: {
-                    "url": record.url,
-                    "length": record.length,
-                    "text": record.text,
-                }
+                document_id: (
+                    {
+                        "url": record.url,
+                        "length": record.length,
+                        "text": record.text,
+                        "content_hash": record.content_hash,
+                    }
+                    if record.content_hash
+                    else {
+                        "url": record.url,
+                        "length": record.length,
+                        "text": record.text,
+                    }
+                )
                 for document_id, record in self.documents.items()
             },
             "terms": {
@@ -159,6 +175,7 @@ class InvertedIndex:
                 url=str(document_raw.get("url", "")),
                 length=int(document_raw.get("length", 0)),
                 text=str(document_raw.get("text", "")),
+                content_hash=str(document_raw.get("content_hash", "")),
             )
 
         for term, term_raw in raw.get("terms", {}).items():

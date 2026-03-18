@@ -20,8 +20,8 @@ Executed immediately before benchmarking:
 - `python -m ruff check src tests` -> pass
 - `python -m mypy src` -> pass
 - `python -m pytest -q` -> pass
-- tests passing: 179
-- total coverage: 99.37%
+- tests passing: 186
+- total coverage: 99.16%
 
 ## Benchmark Output (Runs = 5)
 
@@ -29,14 +29,16 @@ Executed immediately before benchmarking:
 Benchmark summary:
 Runs per measurement: 5
 Timings:
-- Build (reindex): 0.487496s
-- Load (from JSON): 0.308592s
+- Build (reindex): 0.510834s
+- Build (incremental reuse): 0.078538s
+- Load (from JSON): 0.320823s
 - Query timings (average):
-  - tfidf_and: 0.000531s
-  - bm25_and: 0.001532s
-  - phrase_query: 0.000322s
-  - proximity_query: 0.000743s
-TF-IDF vs BM25 ratio (bm25/tfidf): 2.883x
+  - tfidf_and: 0.000415s
+  - bm25_and: 0.001676s
+  - phrase_query: 0.000351s
+  - proximity_query: 0.000739s
+Build speedup (full/incremental): 6.504x
+TF-IDF vs BM25 ratio (bm25/tfidf): 4.036x
 Corpus stats:
 - Pages: 214
 - Unique terms: 4570

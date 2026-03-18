@@ -25,7 +25,7 @@ DEFAULT_POLITENESS_SECONDS = 6.0
 POLITENESS_ENV_VAR = "SEARCH_POLITENESS_SECONDS"
 HELP_TEXT = (
     "Available commands:\n"
-    "  build\n"
+    "  build [--incremental]\n"
     "  load\n"
     "  benchmark [--runs N]\n"
     "  print <word>\n"
@@ -43,7 +43,7 @@ class CLIContext:
     index: Optional[InvertedIndex] = None
 
 
-BuildPipelineFn = Callable[[], BuildResult]
+BuildPipelineFn = Callable[..., BuildResult]
 SaveIndexFn = Callable[[InvertedIndex], str]
 LoadIndexFn = Callable[[], tuple[InvertedIndex, str]]
 
@@ -204,6 +204,15 @@ def _parse_benchmark_arguments(args: Sequence[str]) -> int:
     return runs
 
 
+def _parse_build_arguments(args: Sequence[str]) -> bool:
+    """Return whether build should run in incremental mode."""
+    if not args:
+        return False
+    if len(args) == 1 and args[0] in {"--incremental", "--incremental=true"}:
+        return True
+    raise ValueError("Error: usage: build [--incremental]")
+
+
 def dispatch_command(
     command: str,
     args: Sequence[str],
@@ -223,11 +232,22 @@ def dispatch_command(
         return "Exiting search shell.", True
 
     if command == "build":
-        _ensure_no_arguments(command, args)
+        use_incremental = _parse_build_arguments(args)
         if context is None or build_pipeline is None:
+            if use_incremental:
+                return "Build requested (incremental). Pipeline not implemented yet.", False
             return "Build requested. Pipeline not implemented yet.", False
 
-        build_result = build_pipeline()
+        if use_incremental:
+            try:
+                build_result = build_pipeline(
+                    incremental=True,
+                    existing_index=context.index,
+                )
+            except TypeError:
+                build_result = build_pipeline()
+        else:
+            build_result = build_pipeline()
         context.index = build_result.index
         summary = format_build_summary(build_result.summary)
 
@@ -353,9 +373,11 @@ def run_shell() -> None:
             message, should_exit = handle_command(
                 raw_command,
                 context=context,
-                build_pipeline=lambda: run_build_pipeline(
+                build_pipeline=lambda incremental=False, existing_index=None: run_build_pipeline(
                     min_delay_seconds=_read_politeness_seconds(),
                     progress_callback=print,
+                    incremental=incremental,
+                    existing_index=existing_index,
                 ),
                 save_index_fn=lambda index: str(
                     save_index(index, path=DEFAULT_INDEX_PATH)

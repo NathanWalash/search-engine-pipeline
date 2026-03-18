@@ -123,3 +123,18 @@ def test_add_document_terms_stores_optional_document_text() -> None:
     )
 
     assert index.documents["doc1"].text == "Friend truth."
+
+
+def test_document_content_hash_is_serialized_when_present() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["friend"],
+        content_hash="abc123",
+    )
+
+    serialised = index.to_dict()
+    assert serialised["documents"]["doc1"]["content_hash"] == "abc123"
+    loaded = index.from_dict(serialised)
+    assert loaded.documents["doc1"].content_hash == "abc123"

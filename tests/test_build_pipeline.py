@@ -104,7 +104,121 @@ def test_format_build_summary_is_deterministic() -> None:
         "URLs discovered: 0\n"
         "URLs visited: 0\n"
         "Crawl success rate: 0.0%\n"
+        "Documents reused: 0\n"
+        "Documents reindexed: 0\n"
+        "Documents new: 0\n"
         "Unique terms: 12\n"
         "Total tokens: 87\n"
         "Duration: 1.23s"
     )
+
+
+def test_index_crawled_pages_incremental_reuses_unchanged_and_reindexes_changed() -> None:
+    baseline_pages = [
+        CrawledPage(
+            url="https://quotes.toscrape.com/page/1/",
+            html="<p>Good friends make good times</p>",
+            status_code=200,
+        ),
+        CrawledPage(
+            url="https://quotes.toscrape.com/page/2/",
+            html="<p>Truth and kindness</p>",
+            status_code=200,
+        ),
+    ]
+    existing_index = build_pipeline.index_crawled_pages(baseline_pages)
+
+    updated_pages = [
+        CrawledPage(
+            url="https://quotes.toscrape.com/page/1/",
+            html="<p>Good friends make good times</p>",
+            status_code=200,
+        ),
+        CrawledPage(
+            url="https://quotes.toscrape.com/page/2/",
+            html="<p>Truth and kindness always win</p>",
+            status_code=200,
+        ),
+        CrawledPage(
+            url="https://quotes.toscrape.com/page/3/",
+            html="<p>Brand new quote</p>",
+            status_code=200,
+        ),
+    ]
+
+    index, stats = build_pipeline.index_crawled_pages_incremental(
+        updated_pages,
+        existing_index=existing_index,
+    )
+    serialised = index.to_dict()
+
+    assert stats.documents_reused == 1
+    assert stats.documents_reindexed == 1
+    assert stats.documents_new == 1
+    assert serialised["meta"]["page_count"] == 3
+    assert serialised["documents"]["doc1"]["url"] == "https://quotes.toscrape.com/page/1/"
+    assert serialised["documents"]["doc2"]["url"] == "https://quotes.toscrape.com/page/2/"
+    assert serialised["documents"]["doc3"]["url"] == "https://quotes.toscrape.com/page/3/"
+    assert serialised["terms"]["good"]["postings"]["doc1"]["term_frequency"] == 2
+    assert serialised["terms"]["always"]["postings"]["doc2"]["term_frequency"] == 1
+    assert serialised["terms"]["brand"]["postings"]["doc3"]["term_frequency"] == 1
+
+
+def test_run_build_pipeline_incremental_mode_reports_reuse_stats(monkeypatch) -> None:
+    baseline_pages = [
+        CrawledPage(
+            url="https://quotes.toscrape.com/page/1/",
+            html="<p>Good friends make good times</p>",
+            status_code=200,
+        )
+    ]
+    existing_index = build_pipeline.index_crawled_pages(baseline_pages)
+
+    def fake_crawl_site_bfs_with_report(
+        start_url: str,
+        *,
+        allowed_domain: str,
+        requester,
+        min_delay_seconds: float,
+        timeout_seconds: float,
+        user_agent: str,
+        max_pages,
+        progress_callback,
+    ) -> list[CrawledPage]:
+        del (
+            start_url,
+            allowed_domain,
+            requester,
+            min_delay_seconds,
+            timeout_seconds,
+            user_agent,
+            max_pages,
+            progress_callback,
+        )
+        return baseline_pages, CrawlReport(
+            urls_discovered=1,
+            urls_visited=1,
+            pages_crawled=1,
+            pages_failed=0,
+        )
+
+    monkeypatch.setattr(
+        build_pipeline,
+        "crawl_site_bfs_with_report",
+        fake_crawl_site_bfs_with_report,
+    )
+    progress_messages: list[str] = []
+    result = build_pipeline.run_build_pipeline(
+        progress_callback=progress_messages.append,
+        incremental=True,
+        existing_index=existing_index,
+    )
+
+    assert result.summary.documents_reused == 1
+    assert result.summary.documents_reindexed == 0
+    assert result.summary.documents_new == 0
+    assert progress_messages == [
+        "Build: crawling pages...",
+        "Build: indexing crawled pages (incremental mode)...",
+        "Build: complete.",
+    ]

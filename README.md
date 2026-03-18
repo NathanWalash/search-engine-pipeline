@@ -23,6 +23,7 @@ Implemented advanced features:
 - proximity-aware ranking bonus (`find --proximity-bonus on`)
 - result snippets with matched-term highlighting (`find --snippets on`)
 - benchmarking summary (`benchmark --runs N`)
+- incremental reindex mode (`build --incremental`)
 - quoted phrase search
 - query suggestions (`Did you mean`)
 - crawl statistics reporting
@@ -40,8 +41,8 @@ Roadmap planning docs are split into:
 
 Quality snapshot (2026-03-18):
 
-- tests: `179` passing
-- total coverage: `99.37%`
+- tests: `186` passing
+- total coverage: `99.16%`
 - CI gates: `ruff`, `mypy`, and `pytest` all passing
 
 ## Installation
@@ -71,7 +72,7 @@ search>
 
 ## Command Usage
 
-- `build`
+- `build [--incremental]`
 - `load`
 - `benchmark [--runs N]`
 - `print <word>`
@@ -83,6 +84,7 @@ Build the index by crawling the site and save it to `data/index.json`.
 
 ```text
 search> build
+search> build --incremental
 ```
 
 By default, the crawler enforces a 6-second politeness delay between requests.
@@ -104,6 +106,7 @@ After crawl/indexing, `build` also prints a crawl report summary:
 - pages crawled / failed
 - URLs discovered / visited
 - crawl success rate
+- documents reused / reindexed / new
 - unique terms, token count, and duration
 
 ### `load`
@@ -131,6 +134,7 @@ search> print good
 Run performance measurements for:
 
 - build/reindex timing
+- incremental-reuse timing and build speedup
 - load timing
 - query timings (TF-IDF, BM25, phrase, proximity)
 - corpus and index-size stats
@@ -217,12 +221,13 @@ For final submission:
 3. run `python -m mypy src`,
 4. run `python -m pytest -q`,
 5. generate fresh index artifact by running CLI `build`,
-6. run benchmark evidence via `benchmark --runs 5` (or more for stable numbers),
-7. prepare milestone tags and GitHub release notes from `docs/RELEASE_PLAN.md`,
-8. store a benchmark snapshot in `docs/BENCHMARK_RESULTS.md`,
-9. verify references/citations are present in README/docs,
-10. verify Git traceability notes in `docs/GIT_WORKFLOW_EVIDENCE.md`,
-11. verify the full checklist in `docs/SUBMISSION_CHECKLIST.md`.
+6. run `build --incremental` to validate reuse-path behaviour,
+7. run benchmark evidence via `benchmark --runs 5` (or more for stable numbers),
+8. prepare milestone tags and GitHub release notes from `docs/RELEASE_PLAN.md`,
+9. store a benchmark snapshot in `docs/BENCHMARK_RESULTS.md`,
+10. verify references/citations are present in README/docs,
+11. verify Git traceability notes in `docs/GIT_WORKFLOW_EVIDENCE.md`,
+12. verify the full checklist in `docs/SUBMISSION_CHECKLIST.md`.
 
 ## Architecture
 
