@@ -54,6 +54,7 @@ def test_run_benchmark_returns_expected_metrics_with_text() -> None:
     assert summary.token_count > 0
     assert summary.index_size_bytes > 0
     assert summary.build_seconds > 0
+    assert summary.incremental_build_seconds > 0
     assert summary.load_seconds > 0
 
 
@@ -79,6 +80,8 @@ def test_format_benchmark_summary_includes_key_sections() -> None:
 
     assert "Benchmark summary:" in rendered
     assert "Build (reindex):" in rendered
+    assert "Build (incremental reuse):" in rendered
+    assert "Build speedup (full/incremental):" in rendered
     assert "Load (from JSON):" in rendered
     assert "phrase_query" in rendered
     assert "proximity_query" in rendered

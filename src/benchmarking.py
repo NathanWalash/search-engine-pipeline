@@ -7,7 +7,14 @@ import time
 from typing import Callable, Optional, Sequence
 import uuid
 
-from src.indexer import InvertedIndex, TokenPosition, create_inverted_index
+from src.indexer import (
+    DocumentRecord,
+    InvertedIndex,
+    PostingRecord,
+    TermRecord,
+    TokenPosition,
+    create_inverted_index,
+)
 from src.parser import tokenize_with_positions
 from src.search import RankingMode, find_and_match_documents
 from src.storage import load_index, save_index
@@ -37,6 +44,7 @@ class BenchmarkSummary:
 
     runs: int
     build_seconds: float
+    incremental_build_seconds: float
     load_seconds: float
     query_timings: list[QueryTiming]
     page_count: int
@@ -135,6 +143,35 @@ def _rebuild_index(index: InvertedIndex) -> InvertedIndex:
     return rebuilt
 
 
+def _rebuild_index_incremental_reuse(index: InvertedIndex) -> InvertedIndex:
+    """Rebuild index by reusing unchanged postings/documents directly."""
+    rebuilt = create_inverted_index()
+    rebuilt.meta = dict(index.meta)
+    rebuilt.documents = {
+        document_id: DocumentRecord(
+            url=document.url,
+            length=document.length,
+            text=document.text,
+            content_hash=document.content_hash,
+        )
+        for document_id, document in index.documents.items()
+    }
+    rebuilt.terms = {
+        term: TermRecord(
+            document_frequency=term_record.document_frequency,
+            postings={
+                document_id: PostingRecord(
+                    term_frequency=posting.term_frequency,
+                    positions=list(posting.positions),
+                )
+                for document_id, posting in term_record.postings.items()
+            },
+        )
+        for term, term_record in index.terms.items()
+    }
+    return rebuilt
+
+
 def _lookup_query_timing(summary: BenchmarkSummary, label: str) -> Optional[float]:
     """Return timing for one label, or None when case is absent."""
     for timing in summary.query_timings:
@@ -158,6 +195,11 @@ def run_benchmark(
 
     build_seconds = _average_seconds(
         lambda: _rebuild_index(index),
+        runs=runs,
+        timer=timer,
+    )
+    incremental_build_seconds = _average_seconds(
+        lambda: _rebuild_index_incremental_reuse(index),
         runs=runs,
         timer=timer,
     )
@@ -199,6 +241,7 @@ def run_benchmark(
     return BenchmarkSummary(
         runs=runs,
         build_seconds=build_seconds,
+        incremental_build_seconds=incremental_build_seconds,
         load_seconds=load_seconds,
         query_timings=query_timings,
         page_count=index.meta.get("page_count", len(index.documents)),
@@ -215,6 +258,10 @@ def format_benchmark_summary(summary: BenchmarkSummary) -> str:
         f"Runs per measurement: {summary.runs}",
         "Timings:",
         f"- Build (reindex): {summary.build_seconds:.6f}s",
+        (
+            "- Build (incremental reuse): "
+            f"{summary.incremental_build_seconds:.6f}s"
+        ),
         f"- Load (from JSON): {summary.load_seconds:.6f}s",
         "- Query timings (average):",
     ]
@@ -224,6 +271,11 @@ def format_benchmark_summary(summary: BenchmarkSummary) -> str:
 
     tfidf_time = _lookup_query_timing(summary, "tfidf_and")
     bm25_time = _lookup_query_timing(summary, "bm25_and")
+    if summary.incremental_build_seconds > 0:
+        build_speedup = summary.build_seconds / summary.incremental_build_seconds
+        lines.append(
+            f"Build speedup (full/incremental): {build_speedup:.3f}x"
+        )
     if tfidf_time is not None and bm25_time is not None and tfidf_time > 0:
         ratio = bm25_time / tfidf_time
         lines.append(
