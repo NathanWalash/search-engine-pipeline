@@ -16,14 +16,16 @@ Last updated: 2026-03-18
 
 ### Advanced
 
-- Status: A-E, F, G, H, I, and J complete; hardening baseline complete
+- Status: A-E, F, G, H, I, and J complete; hardening and final polish complete
 - Completed features: A through E, F, G, H, I, and J
 - Completed non-feature phase: CI/testing/code-quality baseline hardening
 - Planned next features: none (advanced queue complete)
-- Cross-cutting requirement: final polish gate for final submission pass
+- Cross-cutting requirement: final polish gate complete
 
 ## Current Position
 
 The original roadmap phases are complete.
 The advanced feature queue is complete.
-The next delivery step is the non-lettered final polish gate.
+The final polish gate is complete.
+The next delivery step is final submission packaging (fresh `data/index.json`)
+and demo/report preparation.

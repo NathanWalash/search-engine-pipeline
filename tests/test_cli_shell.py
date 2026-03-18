@@ -1,5 +1,8 @@
 """Tests for CLI command parsing and dispatch behaviour."""
 
+import runpy
+from pathlib import Path
+
 import pytest
 
 import src.main as main_module
@@ -341,6 +344,21 @@ def test_read_politeness_seconds_rejects_invalid_value(monkeypatch) -> None:
         main_module._read_politeness_seconds()
 
 
+def test_read_politeness_seconds_rejects_non_positive_value(monkeypatch) -> None:
+    monkeypatch.setenv("SEARCH_POLITENESS_SECONDS", "0")
+    with pytest.raises(ValueError, match="greater than 0"):
+        main_module._read_politeness_seconds()
+
+
+def test_format_suggestions_handles_empty_single_and_multiple() -> None:
+    assert main_module._format_suggestions({}) == ""
+    assert main_module._format_suggestions({"frend": "friend"}) == "Did you mean: friend?"
+    rendered = main_module._format_suggestions({"frend": "friend", "godo": "good"})
+    assert "Did you mean:" in rendered
+    assert "- frend -> friend" in rendered
+    assert "- godo -> good" in rendered
+
+
 def test_handle_load_sets_context_index() -> None:
     context = main_module.CLIContext()
     loaded_index = create_inverted_index()
@@ -408,3 +426,26 @@ def test_handle_find_missing_word_reports_suggestion_when_available() -> None:
 
     assert should_exit is False
     assert message == "No matching pages found.\nDid you mean: friend?"
+
+
+def test_handle_find_rejects_flag_only_query() -> None:
+    with pytest.raises(ValueError, match="query cannot be empty"):
+        handle_command("find --rank bm25")
+
+
+def test_handle_benchmark_rejects_non_positive_runs() -> None:
+    with pytest.raises(ValueError, match="benchmark runs must be a positive integer"):
+        handle_command("benchmark --runs 0")
+
+
+def test_running_module_main_entrypoint_via_main_guard(monkeypatch, capsys) -> None:
+    def raise_eof(prompt: str) -> str:
+        del prompt
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", raise_eof)
+    runpy.run_path(str(Path(main_module.__file__)), run_name="__main__")
+    output = capsys.readouterr().out
+
+    assert "Search Engine CLI" in output
+    assert "Exiting search shell." in output

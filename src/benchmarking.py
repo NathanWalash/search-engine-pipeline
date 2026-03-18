@@ -46,6 +46,7 @@ class BenchmarkSummary:
 
 
 def _default_query_cases() -> list[QueryBenchmarkCase]:
+    """Return benchmark query mix covering ranking and positional query modes."""
     return [
         QueryBenchmarkCase(
             label="tfidf_and",
@@ -80,6 +81,7 @@ def _average_seconds(
     runs: int,
     timer: Callable[[], float],
 ) -> float:
+    """Execute task repeatedly and return mean elapsed seconds."""
     if runs <= 0:
         raise ValueError("runs must be a positive integer")
 
@@ -134,6 +136,7 @@ def _rebuild_index(index: InvertedIndex) -> InvertedIndex:
 
 
 def _lookup_query_timing(summary: BenchmarkSummary, label: str) -> Optional[float]:
+    """Return timing for one label, or None when case is absent."""
     for timing in summary.query_timings:
         if timing.label == label:
             return timing.average_seconds

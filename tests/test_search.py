@@ -298,6 +298,43 @@ def test_suggest_closest_term_returns_none_for_far_terms() -> None:
     assert suggest_closest_term(index, "zzzzzz") is None
 
 
+def test_normalize_raw_term_falls_back_when_tokenize_returns_empty() -> None:
+    assert search_module._normalize_raw_term("!!!") == "!!!"
+
+
+def test_levenshtein_distance_short_circuits_equal_and_empty_inputs() -> None:
+    assert search_module._levenshtein_distance("abc", "abc") == 0
+    assert search_module._levenshtein_distance("", "abc") == 3
+    assert search_module._levenshtein_distance("abc", "") == 3
+
+
+def test_suggest_closest_term_returns_none_for_empty_normalized_term() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["friend"],
+    )
+
+    assert suggest_closest_term(index, "!!!") is None
+
+
+def test_suggest_closest_term_tie_breaks_lexicographically() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["cut"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["cat"],
+    )
+
+    assert suggest_closest_term(index, "cit") == "cat"
+
+
 def test_suggest_query_terms_includes_phrase_tokens() -> None:
     index = create_inverted_index()
     index.add_document_terms(
@@ -309,6 +346,15 @@ def test_suggest_query_terms_includes_phrase_tokens() -> None:
     suggestions = suggest_query_terms(index, ['"godo friends"'])
 
     assert suggestions == {"godo": "good"}
+
+
+def test_parse_find_query_skips_empty_and_duplicate_phrases() -> None:
+    parsed = search_module._parse_find_query(
+        ['"!!!"', '"good friends"', '"good friends"']
+    )
+
+    assert parsed.phrases == [["good", "friends"]]
+    assert parsed.display_query == '"good friends"'
 
 
 def test_hyphenated_indexing_supports_exact_and_split_queries() -> None:
@@ -459,6 +505,89 @@ def test_find_rejects_unsupported_ranking_mode() -> None:
 
     with pytest.raises(ValueError, match="Unsupported ranking mode"):
         find_and_match_documents(index, ["good"], ranking_mode="bad-mode")  # type: ignore[arg-type]
+
+
+def test_document_contains_phrase_handles_empty_missing_term_and_missing_posting() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["good"],
+    )
+
+    assert (
+        search_module._document_contains_phrase(
+            index,
+            document_id="doc1",
+            phrase_tokens=[],
+        )
+        is False
+    )
+    assert (
+        search_module._document_contains_phrase(
+            index,
+            document_id="doc1",
+            phrase_tokens=["ghost"],
+        )
+        is False
+    )
+    assert (
+        search_module._document_contains_phrase(
+            index,
+            document_id="doc2",
+            phrase_tokens=["good", "friends"],
+        )
+        is False
+    )
+
+
+def test_find_phrase_document_ids_handles_empty_and_missing_terms() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["kind", "friends"],
+    )
+
+    assert (
+        search_module._find_phrase_document_ids(
+            index,
+            phrase_tokens=[],
+        )
+        == set()
+    )
+    assert (
+        search_module._find_phrase_document_ids(
+            index,
+            phrase_tokens=["ghost"],
+        )
+        == set()
+    )
+    assert (
+        search_module._find_phrase_document_ids(
+            index,
+            phrase_tokens=["good", "ghost"],
+        )
+        == set()
+    )
+    assert (
+        search_module._find_phrase_document_ids(
+            index,
+            phrase_tokens=["good", "friends"],
+            candidate_document_ids={"doc2"},
+        )
+        == set()
+    )
 
 
 def test_find_proximity_bonus_prefers_close_term_matches() -> None:
