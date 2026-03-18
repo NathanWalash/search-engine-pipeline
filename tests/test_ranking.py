@@ -4,8 +4,11 @@ import pytest
 
 from src.indexer import create_inverted_index
 from src.ranking import (
+    apply_proximity_bonus,
     inverse_document_frequency,
     inverse_document_frequency_bm25,
+    minimum_position_distance,
+    proximity_signal,
     score_document_bm25,
     score_document_tfidf,
 )
@@ -118,3 +121,46 @@ def test_score_document_bm25_prefers_shorter_relevant_document() -> None:
     )
 
     assert score_doc1 > score_doc2
+
+
+def test_minimum_position_distance_returns_smallest_gap() -> None:
+    distance = minimum_position_distance([10, 1, 5], [7, 3])
+    assert distance == 2
+
+
+def test_proximity_signal_prefers_closer_terms() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc-close",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends", "truth"],
+    )
+    index.add_document_terms(
+        document_id="doc-far",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["good"] + (["filler"] * 20) + ["friends"],
+    )
+
+    signal_close = proximity_signal(
+        index,
+        document_id="doc-close",
+        query_terms=["good", "friends"],
+    )
+    signal_far = proximity_signal(
+        index,
+        document_id="doc-far",
+        query_terms=["good", "friends"],
+    )
+
+    assert signal_close > signal_far
+    assert signal_far > 0.0
+
+
+def test_apply_proximity_bonus_bounds_signal() -> None:
+    boosted = apply_proximity_bonus(10.0, proximity=2.0, weight=0.5)
+    unchanged_negative = apply_proximity_bonus(10.0, proximity=-1.0, weight=0.5)
+    unchanged_zero = apply_proximity_bonus(0.0, proximity=1.0, weight=0.5)
+
+    assert boosted == pytest.approx(15.0)
+    assert unchanged_negative == pytest.approx(10.0)
+    assert unchanged_zero == pytest.approx(0.0)
