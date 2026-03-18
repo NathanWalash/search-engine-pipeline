@@ -59,6 +59,7 @@ def parse_command(raw_command: str) -> tuple[str, list[str]]:
 
 
 def _ensure_no_arguments(command: str, args: Sequence[str]) -> None:
+    """Raise when a command that takes no args receives extra tokens."""
     if args:
         raise ValueError(f"Error: '{command}' does not take arguments")
 

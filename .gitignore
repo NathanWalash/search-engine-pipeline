@@ -21,6 +21,8 @@ Thumbs.db
 # Generated project artifacts
 data/index.json
 .tmp_brief_text.txt
+.tmp_benchmarking/
+.tmp_storage_tests/
 pytest-cache-files-*
 
 coverage.xml
