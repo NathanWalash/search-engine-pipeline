@@ -65,6 +65,28 @@ def test_handle_find_accepts_multiword_query() -> None:
     assert should_exit is False
 
 
+def test_handle_find_accepts_ranking_flag() -> None:
+    message, should_exit = handle_command("find --rank bm25 good friends")
+    assert message == "Find requested for 'good friends'."
+    assert should_exit is False
+
+
+def test_handle_find_accepts_equals_ranking_flag() -> None:
+    message, should_exit = handle_command("find --rank=bm25 good")
+    assert message == "Find requested for 'good'."
+    assert should_exit is False
+
+
+def test_handle_find_rejects_missing_ranking_mode_value() -> None:
+    with pytest.raises(ValueError, match="--rank requires one of"):
+        handle_command("find --rank")
+
+
+def test_handle_find_rejects_unsupported_ranking_mode() -> None:
+    with pytest.raises(ValueError, match="unsupported ranking mode"):
+        handle_command("find --rank madeup good")
+
+
 def test_handle_exit_sets_exit_state() -> None:
     message, should_exit = handle_command("exit")
     assert message == "Exiting search shell."

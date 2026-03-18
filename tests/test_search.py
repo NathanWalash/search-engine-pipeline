@@ -166,6 +166,16 @@ def test_find_output_includes_tfidf_score() -> None:
     assert "score=" in message
 
 
+def test_find_output_supports_bm25_ranking_flag() -> None:
+    context = _make_context_with_index()
+    message, should_exit = handle_command("find --rank bm25 good", context=context)
+
+    assert should_exit is False
+    assert "Query: good" in message
+    assert "Matches: 2" in message
+    assert "score=" in message
+
+
 def test_find_phrase_query_matches_exact_order_only() -> None:
     index = create_inverted_index()
     index.add_document_terms(
@@ -369,3 +379,46 @@ def test_find_short_circuits_before_high_df_term_intersection() -> None:
 
     assert matches == []
     assert common_tracking.iter_calls == 0
+
+
+def test_find_ranking_mode_switches_between_tfidf_and_bm25(monkeypatch) -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["good"],
+    )
+
+    def fake_tfidf(index, *, document_id: str, query_terms) -> float:
+        del index, query_terms
+        return 10.0 if document_id == "doc1" else 1.0
+
+    def fake_bm25(index, *, document_id: str, query_terms, k1=1.5, b=0.75) -> float:
+        del index, query_terms, k1, b
+        return 10.0 if document_id == "doc2" else 1.0
+
+    monkeypatch.setattr(search_module, "score_document_tfidf", fake_tfidf)
+    monkeypatch.setattr(search_module, "score_document_bm25", fake_bm25)
+
+    tfidf_matches = find_and_match_documents(index, ["good"], ranking_mode="tfidf")
+    bm25_matches = find_and_match_documents(index, ["good"], ranking_mode="bm25")
+
+    assert [match.document_id for match in tfidf_matches] == ["doc1", "doc2"]
+    assert [match.document_id for match in bm25_matches] == ["doc2", "doc1"]
+
+
+def test_find_rejects_unsupported_ranking_mode() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good"],
+    )
+
+    with pytest.raises(ValueError, match="Unsupported ranking mode"):
+        find_and_match_documents(index, ["good"], ranking_mode="bad-mode")  # type: ignore[arg-type]
