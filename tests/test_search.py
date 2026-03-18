@@ -20,11 +20,13 @@ def _make_context_with_index() -> main_module.CLIContext:
         document_id="doc2",
         url="https://quotes.toscrape.com/page/2/",
         tokens=["good", "friends", "make", "good", "times"],
+        text="Good friends make good times.",
     )
     index.add_document_terms(
         document_id="doc1",
         url="https://quotes.toscrape.com/page/1/",
         tokens=["truth", "and", "good"],
+        text="Truth and good intentions.",
     )
     return main_module.CLIContext(index=index)
 
@@ -187,6 +189,28 @@ def test_find_output_supports_proximity_bonus_flag() -> None:
     assert "Query: good friends" in message
     assert "Matches: 1" in message
     assert "score=" in message
+
+
+def test_find_output_supports_snippets_flag() -> None:
+    context = _make_context_with_index()
+    message, should_exit = handle_command(
+        "find --snippets on good friends",
+        context=context,
+    )
+
+    assert should_exit is False
+    assert "Matches: 1" in message
+    assert "snippet=" in message
+    assert "[good]" in message
+    assert "[friends]" in message
+
+
+def test_find_output_omits_snippet_when_flag_is_off() -> None:
+    context = _make_context_with_index()
+    message, should_exit = handle_command("find good friends", context=context)
+
+    assert should_exit is False
+    assert "snippet=" not in message
 
 
 def test_find_phrase_query_matches_exact_order_only() -> None:
@@ -466,3 +490,50 @@ def test_find_proximity_bonus_prefers_close_term_matches() -> None:
     )
     assert with_bonus[0].document_id == "doc1"
     assert with_bonus[0].relevance_score > with_bonus[1].relevance_score
+
+
+def test_find_snippet_highlights_hyphenated_token_for_split_query() -> None:
+    index = create_inverted_index()
+    parsed = parse_html("<p>A well-known author writes novels.</p>")
+    index.add_document(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        token_positions=parsed.token_positions,
+        text=parsed.text,
+    )
+    context = main_module.CLIContext(index=index)
+
+    message, should_exit = handle_command(
+        "find --snippets on well known",
+        context=context,
+    )
+
+    assert should_exit is False
+    assert "snippet=" in message
+    assert "[well-known]" in message
+
+
+def test_build_result_snippet_returns_empty_for_blank_text() -> None:
+    snippet = search_module._build_result_snippet(
+        "   ",
+        highlight_terms=["good"],
+    )
+    assert snippet == ""
+
+
+def test_build_result_snippet_returns_empty_for_non_token_text() -> None:
+    snippet = search_module._build_result_snippet(
+        "!!! ???",
+        highlight_terms=["good"],
+    )
+    assert snippet == ""
+
+
+def test_build_result_snippet_adds_ellipsis_when_window_truncates() -> None:
+    snippet = search_module._build_result_snippet(
+        "zero one two three four five six seven eight",
+        highlight_terms=["five"],
+        window_tokens=3,
+    )
+    assert snippet.startswith("... ")
+    assert snippet.endswith(" ...")

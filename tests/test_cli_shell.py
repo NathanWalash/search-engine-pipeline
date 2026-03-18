@@ -89,6 +89,18 @@ def test_handle_find_accepts_equals_proximity_bonus_flag() -> None:
     assert should_exit is False
 
 
+def test_handle_find_accepts_snippets_flag() -> None:
+    message, should_exit = handle_command("find --snippets on good friends")
+    assert message == "Find requested for 'good friends'."
+    assert should_exit is False
+
+
+def test_handle_find_accepts_equals_snippets_flag() -> None:
+    message, should_exit = handle_command("find --snippets=on good")
+    assert message == "Find requested for 'good'."
+    assert should_exit is False
+
+
 def test_handle_find_rejects_missing_ranking_mode_value() -> None:
     with pytest.raises(ValueError, match="--rank requires one of"):
         handle_command("find --rank")
@@ -107,6 +119,16 @@ def test_handle_find_rejects_missing_proximity_bonus_value() -> None:
 def test_handle_find_rejects_unsupported_proximity_bonus_value() -> None:
     with pytest.raises(ValueError, match="unsupported proximity bonus mode"):
         handle_command("find --proximity-bonus maybe good")
+
+
+def test_handle_find_rejects_missing_snippets_value() -> None:
+    with pytest.raises(ValueError, match="--snippets requires one of"):
+        handle_command("find --snippets")
+
+
+def test_handle_find_rejects_unsupported_snippets_value() -> None:
+    with pytest.raises(ValueError, match="unsupported snippets mode"):
+        handle_command("find --snippets maybe good")
 
 
 def test_handle_exit_sets_exit_state() -> None:
