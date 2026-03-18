@@ -34,6 +34,7 @@ Roadmap planning docs are split into:
 - `docs/CORE_ROADMAP.md`
 - `docs/ADVANCED_ROADMAP.md`
 - `docs/SUBMISSION_CHECKLIST.md`
+- `docs/RELEASE_PLAN.md`
 
 Quality snapshot (2026-03-18):
 
@@ -215,7 +216,9 @@ For final submission:
 4. run `python -m pytest -q`,
 5. generate fresh index artifact by running CLI `build`,
 6. run benchmark evidence via `benchmark --runs 5` (or more for stable numbers),
-7. verify the full checklist in `docs/SUBMISSION_CHECKLIST.md`.
+7. prepare milestone tags and GitHub release notes from `docs/RELEASE_PLAN.md`,
+8. verify references/citations are present in README/docs,
+9. verify the full checklist in `docs/SUBMISSION_CHECKLIST.md`.
 
 ## Architecture
 
@@ -235,6 +238,16 @@ Module responsibilities:
 - `src/storage.py`: JSON save/load with validation
 - `src/search.py`: `print`/`find` query logic and output formatting
 - `src/main.py`: interactive CLI command dispatch
+
+## Research and References
+
+The advanced ranking/query design choices are grounded in standard IR sources:
+
+- Robertson, S., and Zaragoza, H. (2009). *The Probabilistic Relevance Framework: BM25 and Beyond*. DOI: https://doi.org/10.1561/1500000019
+- Robertson, S. E., Walker, S., Jones, S., Hancock-Beaulieu, M., and Gatford, M. (1994). *Okapi at TREC-3*. TREC proceedings: https://pages.nist.gov/trec-browser/trec3/proceedings
+- Manning, C. D., Raghavan, P., and Schutze, H. (2008). *Introduction to Information Retrieval* (TF-IDF weighting): https://nlp.stanford.edu/IR-book/html/htmledition/tf-idf-weighting-1.html
+- Manning, C. D., Raghavan, P., and Schutze, H. (2008). *Introduction to Information Retrieval* (Boolean query intersection ordering): https://nlp.stanford.edu/IR-book/html/htmledition/processing-boolean-queries-1.html
+- Manning, C. D., Raghavan, P., and Schutze, H. (2008). *Introduction to Information Retrieval* (Positional indexes and phrase queries): https://nlp.stanford.edu/IR-book/html/htmledition/positional-indexes-1.html
 
 ## Project Layout
 

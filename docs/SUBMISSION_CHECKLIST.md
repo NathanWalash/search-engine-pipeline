@@ -62,3 +62,20 @@ Submission rule:
 - README command examples match CLI behavior
 - roadmap docs reflect final completion status
 - architecture and feature descriptions match implemented code
+- README includes a references section for ranking/query design decisions
+
+## 7. Git Tags and Release Evidence
+
+- create annotated milestone tags (see `docs/RELEASE_PLAN.md`)
+- push tags to GitHub (`git push origin --tags`)
+- create GitHub releases from milestone tags with short notes:
+  - included features
+  - test/coverage snapshot
+  - benchmark snapshot
+- capture release URLs (or screenshots) for demo/report evidence
+
+## 8. Referencing and Research Evidence
+
+- confirm README/docs cite external algorithm references used (BM25/TF-IDF/query processing)
+- confirm video/demo notes reference these sources when discussing design decisions
+- confirm any tutorial/library sources used are acknowledged
