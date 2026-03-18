@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Callable, Optional, Sequence
 
+from src.benchmarking import format_benchmark_summary, run_benchmark
 from src.build_pipeline import BuildResult, format_build_summary, run_build_pipeline
 from src.indexer import InvertedIndex
 from src.search import (
@@ -26,6 +27,7 @@ HELP_TEXT = (
     "Available commands:\n"
     "  build\n"
     "  load\n"
+    "  benchmark [--runs N]\n"
     "  print <word>\n"
     "  find [--rank tfidf|bm25] [--proximity-bonus on|off] "
     "[--snippets on|off] <query>\n"
@@ -179,6 +181,28 @@ def _parse_find_arguments(
     )
 
 
+def _parse_benchmark_arguments(args: Sequence[str]) -> int:
+    """Extract benchmark options and return runs count."""
+    if not args:
+        return 5
+
+    runs_raw: Optional[str] = None
+    if len(args) == 2 and args[0] == "--runs":
+        runs_raw = args[1]
+    elif len(args) == 1 and args[0].startswith("--runs="):
+        runs_raw = args[0].split("=", 1)[1]
+    else:
+        raise ValueError("Error: usage: benchmark [--runs N]")
+
+    try:
+        runs = int(runs_raw)
+    except ValueError as exc:
+        raise ValueError("Error: benchmark runs must be a positive integer") from exc
+    if runs <= 0:
+        raise ValueError("Error: benchmark runs must be a positive integer")
+    return runs
+
+
 def dispatch_command(
     command: str,
     args: Sequence[str],
@@ -274,6 +298,14 @@ def dispatch_command(
                 f"{_format_suggestions(suggestions)}"
             ), False
         return format_find_results(query_terms, matches), False
+
+    if command == "benchmark":
+        runs = _parse_benchmark_arguments(args)
+        if context is None:
+            return "Benchmark requested. Benchmark harness not implemented yet.", False
+        index = _require_loaded_index(context)
+        benchmark_summary = run_benchmark(index, runs=runs)
+        return format_benchmark_summary(benchmark_summary), False
 
     raise ValueError(
         f"Error: unknown command '{command}'. Type 'help' for usage."

@@ -22,6 +22,7 @@ Implemented advanced features:
 - BM25 ranking mode (`find --rank bm25`)
 - proximity-aware ranking bonus (`find --proximity-bonus on`)
 - result snippets with matched-term highlighting (`find --snippets on`)
+- benchmarking summary (`benchmark --runs N`)
 - quoted phrase search
 - query suggestions (`Did you mean`)
 - crawl statistics reporting
@@ -62,6 +63,7 @@ search>
 
 - `build`
 - `load`
+- `benchmark [--runs N]`
 - `print <word>`
 - `find [--rank tfidf|bm25] [--proximity-bonus on|off] [--snippets on|off] <query>`
 
@@ -112,6 +114,20 @@ Display one term entry from the inverted index.
 
 ```text
 search> print good
+```
+
+### `benchmark [--runs N]`
+
+Run performance measurements for:
+
+- build/reindex timing
+- load timing
+- query timings (TF-IDF, BM25, phrase, proximity)
+- corpus and index-size stats
+
+```text
+search> benchmark
+search> benchmark --runs 10
 ```
 
 ### `find <query>`
@@ -192,6 +208,7 @@ crawl -> parse -> index -> store -> search
 
 Module responsibilities:
 
+- `src/benchmarking.py`: benchmark harness and report formatting
 - `src/crawler.py`: HTTP fetching, politeness delay, internal-link BFS crawl
 - `src/parser.py`: HTML text extraction, tokenization, token positions
 - `src/indexer.py`: inverted index data model and document/term statistics
@@ -205,6 +222,7 @@ Module responsibilities:
 ```text
 search-engine-pipeline/
   src/
+    benchmarking.py
     build_pipeline.py
     crawler.py
     indexer.py
@@ -214,6 +232,7 @@ search-engine-pipeline/
     search.py
     storage.py
   tests/
+    test_benchmarking.py
     test_build_pipeline.py
     test_cli_shell.py
     test_crawler.py
@@ -251,6 +270,7 @@ Use this as a pre-recording checklist for the 5-minute demo.
 - Show an edge case:
   - empty `find`
   - missing index file for `load`
+- Show `benchmark` output (`benchmark --runs 3`)
 - Run the test suite in terminal (`python -m pytest -q`)
 - Show commit history for incremental branch-based development
 

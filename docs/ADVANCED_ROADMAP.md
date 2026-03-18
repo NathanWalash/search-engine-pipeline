@@ -16,6 +16,7 @@ Last updated: 2026-03-18
 8. Feature G - BM25 ranking mode - complete
 9. Feature H - proximity-aware ranking bonus - complete
 10. Feature F - result snippets with matched-term highlighting - complete
+11. Feature J - benchmarking and complexity/performance summary - complete
 
 ## Advanced Features Completed
 
@@ -82,38 +83,19 @@ Last updated: 2026-03-18
 - document text is now stored in index payload for snippet rendering after load
 - tests cover snippet flag parsing, output formatting, and edge boundaries
 
-## Next Planned Feature Queue (J)
+### Feature J - Benchmarking and Complexity/Performance Summary
+
+- benchmark harness added for reproducible build/reindex, load, and query timings
+- query timings include TF-IDF vs BM25, phrase query, and proximity query cases
+- `benchmark [--runs N]` CLI command outputs timing report and corpus/index stats
+- tests cover benchmark metrics, formatting, and CLI behavior
+
+## Next Planned Feature Queue
+
+Advanced feature queue complete.
 
 Implementation note: keep features behind small rollout controls while
 developing, then switch defaults once validated.
-
-### Feature J - Benchmarking and complexity/performance summary
-
-#### Goal
-
-Provide reproducible performance/complexity evidence for build, load, and
-query operations.
-
-#### Suggested branch
-
-`feature/benchmarking-summary`
-
-#### Suggested commits
-
-1. `feat: add benchmark harness for build load and query timings`
-2. `feat: report tf-idf vs bm25 and phrase/proximity query timings`
-3. `feat: include index size and corpus stats in benchmark summary`
-4. `docs: add performance report template and interpretation notes`
-
-#### Exit criteria
-
-- benchmark commands are reproducible and documented,
-- timing reports include build/load/query comparisons,
-- index-size and corpus statistics are captured in summary output.
-
-## Recommended implementation order
-
-1. Feature J (final performance and complexity evidence)
 
 ## Final Polish Gate (Non-Lettered)
 
