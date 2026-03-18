@@ -7,7 +7,12 @@ Use this plan to provide explicit evidence for the brief's Git expectations
 
 - local branch: `feature/final-polish`
 - tags strategy: milestone tags on stable merge commits plus one submission-candidate tag
-- intent: push tags and attach GitHub releases as final evidence step
+- tags created and pushed:
+  - `v0.1-core-roadmap-complete`
+  - `v0.2-advanced-search-complete`
+  - `v0.3-benchmarking-complete`
+  - `v1.0-submission-candidate`
+- next step: attach GitHub release notes to each tag
 
 ## Proposed Milestone Tags
 
