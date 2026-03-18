@@ -131,6 +131,49 @@ def test_handle_find_rejects_unsupported_snippets_value() -> None:
         handle_command("find --snippets maybe good")
 
 
+def test_handle_benchmark_returns_placeholder_message() -> None:
+    message, should_exit = handle_command("benchmark")
+    assert message == "Benchmark requested. Benchmark harness not implemented yet."
+    assert should_exit is False
+
+
+def test_handle_benchmark_accepts_runs_flag_without_context() -> None:
+    message, should_exit = handle_command("benchmark --runs 3")
+    assert message == "Benchmark requested. Benchmark harness not implemented yet."
+    assert should_exit is False
+
+
+def test_handle_benchmark_with_loaded_index_returns_summary() -> None:
+    context = main_module.CLIContext(index=create_inverted_index())
+    context.index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends"],
+        text="Good friends.",
+    )
+    message, should_exit = handle_command("benchmark --runs=1", context=context)
+
+    assert should_exit is False
+    assert "Benchmark summary:" in message
+    assert "TF-IDF vs BM25 ratio" in message
+
+
+def test_handle_benchmark_requires_loaded_index() -> None:
+    context = main_module.CLIContext(index=None)
+    with pytest.raises(ValueError, match="no index loaded"):
+        handle_command("benchmark", context=context)
+
+
+def test_handle_benchmark_rejects_invalid_runs() -> None:
+    with pytest.raises(ValueError, match="benchmark runs must be a positive integer"):
+        handle_command("benchmark --runs nope")
+
+
+def test_handle_benchmark_rejects_invalid_usage() -> None:
+    with pytest.raises(ValueError, match="usage: benchmark"):
+        handle_command("benchmark nope")
+
+
 def test_handle_exit_sets_exit_state() -> None:
     message, should_exit = handle_command("exit")
     assert message == "Exiting search shell."

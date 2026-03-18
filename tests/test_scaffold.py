@@ -4,6 +4,7 @@ import importlib
 
 
 MODULES = [
+    "src.benchmarking",
     "src.crawler",
     "src.parser",
     "src.indexer",
