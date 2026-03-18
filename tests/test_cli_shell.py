@@ -29,6 +29,17 @@ def test_handle_build_returns_placeholder_message() -> None:
     assert should_exit is False
 
 
+def test_handle_build_incremental_returns_placeholder_message() -> None:
+    message, should_exit = handle_command("build --incremental")
+    assert message == "Build requested (incremental). Pipeline not implemented yet."
+    assert should_exit is False
+
+
+def test_handle_build_rejects_invalid_arguments() -> None:
+    with pytest.raises(ValueError, match="usage: build"):
+        handle_command("build nonsense")
+
+
 def test_handle_help_returns_help_text() -> None:
     message, should_exit = handle_command("help")
     assert "Available commands:" in message
@@ -326,6 +337,43 @@ def test_handle_build_wraps_save_storage_error() -> None:
                 StorageError("Unable to save index file: data/index.json")
             ),
         )
+
+
+def test_handle_build_incremental_passes_existing_index_to_pipeline() -> None:
+    existing_index = create_inverted_index()
+    existing_index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good"],
+    )
+    context = main_module.CLIContext(index=existing_index)
+    captured: dict[str, object] = {}
+
+    def fake_build_pipeline(*, incremental=False, existing_index=None):
+        captured["incremental"] = incremental
+        captured["existing_index"] = existing_index
+        built_index = create_inverted_index()
+        return BuildResult(
+            index=built_index,
+            pages=[],
+            summary=BuildSummary(
+                pages_crawled=0,
+                unique_terms=0,
+                token_count=0,
+                duration_seconds=0.1,
+            ),
+        )
+
+    message, should_exit = handle_command(
+        "build --incremental",
+        context=context,
+        build_pipeline=fake_build_pipeline,
+    )
+
+    assert should_exit is False
+    assert "Build complete." in message
+    assert captured["incremental"] is True
+    assert captured["existing_index"] is existing_index
 
 
 def test_read_politeness_seconds_defaults_to_coursework_value(monkeypatch) -> None:
