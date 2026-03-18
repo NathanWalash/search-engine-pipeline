@@ -2,9 +2,9 @@
 
 from dataclasses import dataclass
 import re
-from typing import Optional, Sequence
+from typing import Mapping, Optional, Sequence
 
-from src.indexer import InvertedIndex
+from src.indexer import InvertedIndex, TermRecord
 from src.parser import tokenize
 from src.ranking import score_document_tfidf
 
@@ -185,6 +185,47 @@ def _parse_find_query(query_terms: Sequence[str]) -> ParsedFindQuery:
     )
 
 
+def _resolve_query_term_records(
+    index: InvertedIndex,
+    query_terms: Sequence[str],
+) -> Optional[dict[str, TermRecord]]:
+    """Return query term records, or None if any term is missing from index."""
+    term_records: dict[str, TermRecord] = {}
+    for term in query_terms:
+        term_record = index.terms.get(term)
+        if term_record is None:
+            return None
+        term_records[term] = term_record
+    return term_records
+
+
+def _order_terms_by_document_frequency(
+    term_records: Mapping[str, TermRecord],
+) -> list[str]:
+    """Order query terms for AND intersection by ascending document frequency."""
+    return sorted(
+        term_records,
+        key=lambda term: (term_records[term].document_frequency, term),
+    )
+
+
+def _intersect_term_document_ids(
+    term_records: Mapping[str, TermRecord],
+    ordered_terms: Sequence[str],
+) -> set[str]:
+    """Return document IDs that contain all ordered terms."""
+    matching_document_ids: Optional[set[str]] = None
+    for term in ordered_terms:
+        term_document_ids = set(term_records[term].postings)
+        if matching_document_ids is None:
+            matching_document_ids = term_document_ids
+        else:
+            matching_document_ids &= term_document_ids
+        if not matching_document_ids:
+            return set()
+    return matching_document_ids or set()
+
+
 def _document_contains_phrase(
     index: InvertedIndex,
     *,
@@ -308,15 +349,15 @@ def find_and_match_documents(
         return []
 
     matching_document_ids: Optional[set[str]] = None
-    for term in parsed_query.terms:
-        term_record = index.terms.get(term)
-        if term_record is None:
+    if parsed_query.terms:
+        term_records = _resolve_query_term_records(index, parsed_query.terms)
+        if term_records is None:
             return []
-        term_document_ids = set(term_record.postings.keys())
-        if matching_document_ids is None:
-            matching_document_ids = term_document_ids
-        else:
-            matching_document_ids &= term_document_ids
+        ordered_terms = _order_terms_by_document_frequency(term_records)
+        matching_document_ids = _intersect_term_document_ids(
+            term_records,
+            ordered_terms,
+        )
         if not matching_document_ids:
             return []
 
