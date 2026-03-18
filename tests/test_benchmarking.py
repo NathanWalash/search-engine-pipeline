@@ -2,6 +2,7 @@
 
 import pytest
 
+import src.benchmarking as benchmarking_module
 from src.benchmarking import (
     format_benchmark_summary,
     run_benchmark,
@@ -83,3 +84,17 @@ def test_format_benchmark_summary_includes_key_sections() -> None:
     assert "proximity_query" in rendered
     assert "TF-IDF vs BM25 ratio" in rendered
     assert "Corpus stats:" in rendered
+
+
+def test_average_seconds_rejects_non_positive_runs() -> None:
+    with pytest.raises(ValueError, match="runs must be a positive integer"):
+        benchmarking_module._average_seconds(
+            lambda: None,
+            runs=0,
+            timer=_FakeTimer(),
+        )
+
+
+def test_lookup_query_timing_returns_none_for_missing_label() -> None:
+    summary = run_benchmark(_make_index(include_text=True), runs=1, timer=_FakeTimer())
+    assert benchmarking_module._lookup_query_timing(summary, "missing") is None

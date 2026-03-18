@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.indexer import create_inverted_index
+from src.indexer import DocumentRecord, create_inverted_index
 from src.ranking import (
     apply_proximity_bonus,
     inverse_document_frequency,
@@ -36,6 +36,10 @@ def test_inverse_document_frequency_bm25_increases_for_rarer_terms() -> None:
 
 def test_inverse_document_frequency_bm25_handles_empty_corpus() -> None:
     assert inverse_document_frequency_bm25(total_documents=0, document_frequency=0) == 0.0
+
+
+def test_inverse_document_frequency_bm25_handles_negative_document_frequency() -> None:
+    assert inverse_document_frequency_bm25(total_documents=10, document_frequency=-1) == 0.0
 
 
 def test_score_document_tfidf_uses_term_frequency_and_idf() -> None:
@@ -123,9 +127,81 @@ def test_score_document_bm25_prefers_shorter_relevant_document() -> None:
     assert score_doc1 > score_doc2
 
 
+def test_score_document_bm25_returns_zero_for_missing_document() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good"],
+    )
+
+    score = score_document_bm25(index, document_id="missing-doc", query_terms=["good"])
+    assert score == pytest.approx(0.0)
+
+
+def test_score_document_bm25_returns_zero_when_average_length_is_zero() -> None:
+    index = create_inverted_index()
+    index.documents["doc1"] = DocumentRecord(
+        url="https://quotes.toscrape.com/page/1/",
+        length=0,
+    )
+    index.meta["page_count"] = 1
+    score = score_document_bm25(index, document_id="doc1", query_terms=["good"])
+    assert score == pytest.approx(0.0)
+
+
+def test_score_document_bm25_skips_missing_term_and_missing_posting() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["truth"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["good"],
+    )
+
+    score = score_document_bm25(
+        index,
+        document_id="doc1",
+        query_terms=["missing", "good"],
+    )
+    assert score == pytest.approx(0.0)
+
+
+def test_score_document_bm25_skips_non_positive_denominator() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good"],
+    )
+
+    score = score_document_bm25(
+        index,
+        document_id="doc1",
+        query_terms=["good"],
+        k1=-1.5,
+        b=0.0,
+    )
+    assert score == pytest.approx(0.0)
+
+
 def test_minimum_position_distance_returns_smallest_gap() -> None:
     distance = minimum_position_distance([10, 1, 5], [7, 3])
     assert distance == 2
+
+
+def test_minimum_position_distance_returns_none_for_empty_positions() -> None:
+    assert minimum_position_distance([], [1, 2]) is None
+    assert minimum_position_distance([1, 2], []) is None
+
+
+def test_minimum_position_distance_stops_on_zero_distance() -> None:
+    distance = minimum_position_distance([2, 5], [1, 5, 9])
+    assert distance == 0
 
 
 def test_proximity_signal_prefers_closer_terms() -> None:
@@ -164,3 +240,71 @@ def test_apply_proximity_bonus_bounds_signal() -> None:
     assert boosted == pytest.approx(15.0)
     assert unchanged_negative == pytest.approx(10.0)
     assert unchanged_zero == pytest.approx(0.0)
+
+
+def test_proximity_signal_returns_zero_for_single_unique_term() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends"],
+    )
+
+    assert proximity_signal(index, document_id="doc1", query_terms=["good", "GOOD"]) == 0.0
+
+
+def test_proximity_signal_handles_missing_left_and_right_records() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends"],
+    )
+    index.add_document_terms(
+        document_id="doc2",
+        url="https://quotes.toscrape.com/page/2/",
+        tokens=["rare"],
+    )
+
+    missing_left = proximity_signal(
+        index,
+        document_id="doc1",
+        query_terms=["ghost", "good"],
+    )
+    left_posting_missing = proximity_signal(
+        index,
+        document_id="doc1",
+        query_terms=["rare", "good"],
+    )
+    missing_right = proximity_signal(
+        index,
+        document_id="doc1",
+        query_terms=["good", "ghost"],
+    )
+    right_posting_missing = proximity_signal(
+        index,
+        document_id="doc1",
+        query_terms=["good", "rare"],
+    )
+
+    assert missing_left == 0.0
+    assert left_posting_missing == 0.0
+    assert missing_right == 0.0
+    assert right_posting_missing == 0.0
+
+
+def test_proximity_signal_skips_pair_when_distance_is_none() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["good", "friends"],
+    )
+    index.terms["friends"].postings["doc1"].positions = []
+
+    assert proximity_signal(index, document_id="doc1", query_terms=["good", "friends"]) == 0.0
+
+
+def test_apply_proximity_bonus_clamps_negative_weight() -> None:
+    score = apply_proximity_bonus(10.0, proximity=1.0, weight=-2.0)
+    assert score == pytest.approx(10.0)
