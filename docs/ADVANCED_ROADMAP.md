@@ -13,6 +13,7 @@ Last updated: 2026-03-18
 5. Feature E - smarter tokenisation - complete
 6. Non-feature hardening pass (CI/testing/code-quality baseline) - complete
 7. Feature I - posting-list optimisation for AND queries - complete
+8. Feature G - BM25 ranking mode - complete
 
 ## Advanced Features Completed
 
@@ -59,7 +60,13 @@ Last updated: 2026-03-18
 - query evaluation short-circuits before high-frequency intersections when candidate set is empty
 - tests cover ordering and short-circuit behavior equivalence
 
-## Next Planned Feature Queue (F-H, J)
+### Feature G - BM25 Ranking Mode
+
+- BM25 scoring added as an alternative to TF-IDF
+- `find` now accepts `--rank tfidf|bm25` (`tfidf` remains the default)
+- tests cover ranking-mode selection and BM25 scoring behavior
+
+## Next Planned Feature Queue (F, H, J)
 
 Implementation note: keep features behind small rollout controls while
 developing, then switch defaults once validated.
@@ -91,34 +98,6 @@ highlighting matched terms.
 - each `find` result includes a readable snippet,
 - matched terms are visibly highlighted,
 - output remains deterministic and test-covered.
-
-### Feature G - BM25 ranking mode
-
-#### Goal
-
-Add BM25 as an optional ranking mode alongside TF-IDF for `find`.
-
-#### Suggested branch
-
-`feature/ranking-bm25`
-
-#### Optional development flag (recommended)
-
-`find --rank tfidf|bm25` with `tfidf` as safe default until BM25 tests and docs
-are complete.
-
-#### Suggested commits
-
-1. `feat: implement BM25 scoring helper`
-2. `feat: add ranking mode selection for find command`
-3. `test: add ranking tests comparing tf-idf and bm25 ordering`
-4. `docs: explain bm25 mode and usage`
-
-#### Exit criteria
-
-- BM25 ranking is available without breaking TF-IDF,
-- ranking mode behavior is explicit and test-backed,
-- CLI usage is clear in docs/help text.
 
 ### Feature H - Proximity-aware ranking bonus
 
@@ -174,10 +153,9 @@ query operations.
 
 ## Recommended implementation order
 
-1. Feature G (alternative ranking model)
-2. Feature H (ranking quality refinement)
-3. Feature F (user-visible relevance UX)
-4. Feature J (final performance and complexity evidence)
+1. Feature H (ranking quality refinement)
+2. Feature F (user-visible relevance UX)
+3. Feature J (final performance and complexity evidence)
 
 ## Final Polish Gate (Non-Lettered)
 

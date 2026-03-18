@@ -19,6 +19,7 @@ Core roadmap phases (1-10) are implemented, including:
 Implemented advanced features:
 
 - TF-IDF result ranking
+- BM25 ranking mode (`find --rank bm25`)
 - quoted phrase search
 - query suggestions (`Did you mean`)
 - crawl statistics reporting
@@ -60,7 +61,7 @@ search>
 - `build`
 - `load`
 - `print <word>`
-- `find <query>`
+- `find [--rank tfidf|bm25] <query>`
 
 ### `build`
 
@@ -114,13 +115,14 @@ search> print good
 ### `find <query>`
 
 Run case-insensitive AND search across all query terms.
-Matched documents are ranked by a TF-IDF style relevance score.
+Matched documents are ranked by TF-IDF by default, or BM25 with `--rank bm25`.
 Quoted phrases are supported using positional matching.
 Misspelled terms can return a `Did you mean` suggestion.
 Multi-term AND intersections are optimized by processing rarer terms first.
 
 ```text
 search> find good friends
+search> find --rank bm25 good friends
 search> find "good friends"
 search> find well-known
 search> find well known
@@ -200,6 +202,7 @@ search-engine-pipeline/
     indexer.py
     main.py
     parser.py
+    ranking.py
     search.py
     storage.py
   tests/
@@ -210,6 +213,7 @@ search-engine-pipeline/
     test_indexer.py
     test_integration_workflow.py
     test_parser.py
+    test_ranking.py
     test_scaffold.py
     test_search.py
     test_storage.py
