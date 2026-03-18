@@ -111,6 +111,7 @@ Status: complete (2026-03-18)
 - coverage reporting in CI with stable thresholds
 - automated pipeline runs lint, type checks, tests, and coverage on PRs
 - final quality snapshot: 179 tests passing, 99.37% total coverage
+- benchmark evidence captured in `docs/BENCHMARK_RESULTS.md`
 
 ### 2. Publication-quality code
 
@@ -133,6 +134,7 @@ README should read like a polished open-source project and include:
 - testing instructions and CI notes
 - design decisions and tradeoff rationale
 - submission workflow and checklist reference
+- supporting evidence docs for benchmarking and git workflow traceability
 
 ### Polish exit criteria
 
