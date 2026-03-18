@@ -27,7 +27,7 @@ HELP_TEXT = (
     "  build\n"
     "  load\n"
     "  print <word>\n"
-    "  find [--rank tfidf|bm25] <query>\n"
+    "  find [--rank tfidf|bm25] [--proximity-bonus on|off] <query>\n"
     "  help\n"
     "  exit"
 )
@@ -98,12 +98,13 @@ def _format_suggestions(suggestions: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-def _parse_find_arguments(args: Sequence[str]) -> tuple[RankingMode, list[str]]:
-    """Extract optional find flags and return ranking mode plus query terms."""
+def _parse_find_arguments(args: Sequence[str]) -> tuple[RankingMode, bool, list[str]]:
+    """Extract optional find flags and return ranking mode, bonus flag, query."""
     if not args:
         raise ValueError("Error: query cannot be empty")
 
     mode_raw = "tfidf"
+    proximity_bonus_raw = "off"
     query_terms: list[str] = []
     position = 0
     while position < len(args):
@@ -118,6 +119,16 @@ def _parse_find_arguments(args: Sequence[str]) -> tuple[RankingMode, list[str]]:
             mode_raw = token.split("=", 1)[1].lower().strip()
             position += 1
             continue
+        if token == "--proximity-bonus":
+            if position + 1 >= len(args):
+                raise ValueError("Error: --proximity-bonus requires one of: on, off")
+            proximity_bonus_raw = args[position + 1].lower().strip()
+            position += 2
+            continue
+        if token.startswith("--proximity-bonus="):
+            proximity_bonus_raw = token.split("=", 1)[1].lower().strip()
+            position += 1
+            continue
 
         query_terms.append(token)
         position += 1
@@ -126,14 +137,22 @@ def _parse_find_arguments(args: Sequence[str]) -> tuple[RankingMode, list[str]]:
         raise ValueError("Error: query cannot be empty")
 
     if mode_raw == "tfidf":
-        return "tfidf", query_terms
-    if mode_raw == "bm25":
-        return "bm25", query_terms
+        ranking_mode: RankingMode = "tfidf"
+    elif mode_raw == "bm25":
+        ranking_mode = "bm25"
+    else:
+        supported_modes = ", ".join(sorted(SUPPORTED_RANKING_MODES))
+        raise ValueError(
+            f"Error: unsupported ranking mode '{mode_raw}'. Use one of: {supported_modes}"
+        )
 
-    supported_modes = ", ".join(sorted(SUPPORTED_RANKING_MODES))
-    raise ValueError(
-        f"Error: unsupported ranking mode '{mode_raw}'. Use one of: {supported_modes}"
-    )
+    if proximity_bonus_raw not in {"on", "off"}:
+        raise ValueError(
+            "Error: unsupported proximity bonus mode "
+            f"'{proximity_bonus_raw}'. Use one of: on, off"
+        )
+
+    return ranking_mode, proximity_bonus_raw == "on", query_terms
 
 
 def dispatch_command(
@@ -204,7 +223,7 @@ def dispatch_command(
         return format_term_lookup(lookup), False
 
     if command == "find":
-        ranking_mode, query_terms = _parse_find_arguments(args)
+        ranking_mode, use_proximity_bonus, query_terms = _parse_find_arguments(args)
         if context is None:
             query = " ".join(query_terms)
             return f"Find requested for '{query}'.", False
@@ -214,6 +233,7 @@ def dispatch_command(
             index,
             query_terms,
             ranking_mode=ranking_mode,
+            proximity_bonus=use_proximity_bonus,
         )
         if not matches:
             suggestions = suggest_query_terms(index, query_terms)
