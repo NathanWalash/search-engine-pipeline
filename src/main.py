@@ -8,6 +8,8 @@ from typing import Callable, Optional, Sequence
 from src.build_pipeline import BuildResult, format_build_summary, run_build_pipeline
 from src.indexer import InvertedIndex
 from src.search import (
+    RankingMode,
+    SUPPORTED_RANKING_MODES,
     find_and_match_documents,
     format_find_results,
     format_term_lookup,
@@ -25,7 +27,7 @@ HELP_TEXT = (
     "  build\n"
     "  load\n"
     "  print <word>\n"
-    "  find <query>\n"
+    "  find [--rank tfidf|bm25] <query>\n"
     "  help\n"
     "  exit"
 )
@@ -96,6 +98,44 @@ def _format_suggestions(suggestions: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
+def _parse_find_arguments(args: Sequence[str]) -> tuple[RankingMode, list[str]]:
+    """Extract optional find flags and return ranking mode plus query terms."""
+    if not args:
+        raise ValueError("Error: query cannot be empty")
+
+    mode_raw = "tfidf"
+    query_terms: list[str] = []
+    position = 0
+    while position < len(args):
+        token = args[position]
+        if token == "--rank":
+            if position + 1 >= len(args):
+                raise ValueError("Error: --rank requires one of: tfidf, bm25")
+            mode_raw = args[position + 1].lower().strip()
+            position += 2
+            continue
+        if token.startswith("--rank="):
+            mode_raw = token.split("=", 1)[1].lower().strip()
+            position += 1
+            continue
+
+        query_terms.append(token)
+        position += 1
+
+    if not query_terms:
+        raise ValueError("Error: query cannot be empty")
+
+    if mode_raw == "tfidf":
+        return "tfidf", query_terms
+    if mode_raw == "bm25":
+        return "bm25", query_terms
+
+    supported_modes = ", ".join(sorted(SUPPORTED_RANKING_MODES))
+    raise ValueError(
+        f"Error: unsupported ranking mode '{mode_raw}'. Use one of: {supported_modes}"
+    )
+
+
 def dispatch_command(
     command: str,
     args: Sequence[str],
@@ -164,23 +204,26 @@ def dispatch_command(
         return format_term_lookup(lookup), False
 
     if command == "find":
-        if not args:
-            raise ValueError("Error: query cannot be empty")
+        ranking_mode, query_terms = _parse_find_arguments(args)
         if context is None:
-            query = " ".join(args)
+            query = " ".join(query_terms)
             return f"Find requested for '{query}'.", False
         index = _require_loaded_index(context)
 
-        matches = find_and_match_documents(index, args)
+        matches = find_and_match_documents(
+            index,
+            query_terms,
+            ranking_mode=ranking_mode,
+        )
         if not matches:
-            suggestions = suggest_query_terms(index, args)
+            suggestions = suggest_query_terms(index, query_terms)
             if not suggestions:
                 return "No matching pages found.", False
             return (
                 "No matching pages found.\n"
                 f"{_format_suggestions(suggestions)}"
             ), False
-        return format_find_results(args, matches), False
+        return format_find_results(query_terms, matches), False
 
     raise ValueError(
         f"Error: unknown command '{command}'. Type 'help' for usage."

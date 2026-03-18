@@ -2,11 +2,14 @@
 
 from dataclasses import dataclass
 import re
-from typing import Mapping, Optional, Sequence
+from typing import Literal, Mapping, Optional, Sequence
 
 from src.indexer import InvertedIndex, TermRecord
 from src.parser import tokenize
-from src.ranking import score_document_tfidf
+from src.ranking import score_document_bm25, score_document_tfidf
+
+RankingMode = Literal["tfidf", "bm25"]
+SUPPORTED_RANKING_MODES: set[RankingMode] = {"tfidf", "bm25"}
 
 
 @dataclass(frozen=True)
@@ -226,6 +229,27 @@ def _intersect_term_document_ids(
     return matching_document_ids or set()
 
 
+def _score_document_by_mode(
+    index: InvertedIndex,
+    *,
+    document_id: str,
+    query_terms: Sequence[str],
+    ranking_mode: RankingMode,
+) -> float:
+    """Return document score according to selected ranking mode."""
+    if ranking_mode == "bm25":
+        return score_document_bm25(
+            index,
+            document_id=document_id,
+            query_terms=query_terms,
+        )
+    return score_document_tfidf(
+        index,
+        document_id=document_id,
+        query_terms=query_terms,
+    )
+
+
 def _document_contains_phrase(
     index: InvertedIndex,
     *,
@@ -342,8 +366,13 @@ def format_term_lookup(result: TermLookupView) -> str:
 def find_and_match_documents(
     index: InvertedIndex,
     query_terms: Sequence[str],
+    *,
+    ranking_mode: RankingMode = "tfidf",
 ) -> list[QueryMatchView]:
     """Return documents that satisfy AND terms and optional quoted phrases."""
+    if ranking_mode not in SUPPORTED_RANKING_MODES:
+        raise ValueError(f"Unsupported ranking mode: {ranking_mode}")
+
     parsed_query = _parse_find_query(query_terms)
     if not parsed_query.terms and not parsed_query.phrases:
         return []
@@ -400,10 +429,11 @@ def find_and_match_documents(
                 document_id=document_id,
                 url=document.url,
                 term_frequencies=term_frequencies,
-                relevance_score=score_document_tfidf(
+                relevance_score=_score_document_by_mode(
                     index,
                     document_id=document_id,
                     query_terms=parsed_query.scoring_terms,
+                    ranking_mode=ranking_mode,
                 ),
             )
         )
