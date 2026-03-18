@@ -27,7 +27,8 @@ HELP_TEXT = (
     "  build\n"
     "  load\n"
     "  print <word>\n"
-    "  find [--rank tfidf|bm25] [--proximity-bonus on|off] <query>\n"
+    "  find [--rank tfidf|bm25] [--proximity-bonus on|off] "
+    "[--snippets on|off] <query>\n"
     "  help\n"
     "  exit"
 )
@@ -98,13 +99,16 @@ def _format_suggestions(suggestions: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-def _parse_find_arguments(args: Sequence[str]) -> tuple[RankingMode, bool, list[str]]:
-    """Extract optional find flags and return ranking mode, bonus flag, query."""
+def _parse_find_arguments(
+    args: Sequence[str],
+) -> tuple[RankingMode, bool, bool, list[str]]:
+    """Extract optional find flags and return ranking, flags, and query."""
     if not args:
         raise ValueError("Error: query cannot be empty")
 
     mode_raw = "tfidf"
     proximity_bonus_raw = "off"
+    snippets_raw = "off"
     query_terms: list[str] = []
     position = 0
     while position < len(args):
@@ -129,6 +133,16 @@ def _parse_find_arguments(args: Sequence[str]) -> tuple[RankingMode, bool, list[
             proximity_bonus_raw = token.split("=", 1)[1].lower().strip()
             position += 1
             continue
+        if token == "--snippets":
+            if position + 1 >= len(args):
+                raise ValueError("Error: --snippets requires one of: on, off")
+            snippets_raw = args[position + 1].lower().strip()
+            position += 2
+            continue
+        if token.startswith("--snippets="):
+            snippets_raw = token.split("=", 1)[1].lower().strip()
+            position += 1
+            continue
 
         query_terms.append(token)
         position += 1
@@ -151,8 +165,18 @@ def _parse_find_arguments(args: Sequence[str]) -> tuple[RankingMode, bool, list[
             "Error: unsupported proximity bonus mode "
             f"'{proximity_bonus_raw}'. Use one of: on, off"
         )
+    if snippets_raw not in {"on", "off"}:
+        raise ValueError(
+            "Error: unsupported snippets mode "
+            f"'{snippets_raw}'. Use one of: on, off"
+        )
 
-    return ranking_mode, proximity_bonus_raw == "on", query_terms
+    return (
+        ranking_mode,
+        proximity_bonus_raw == "on",
+        snippets_raw == "on",
+        query_terms,
+    )
 
 
 def dispatch_command(
@@ -223,7 +247,12 @@ def dispatch_command(
         return format_term_lookup(lookup), False
 
     if command == "find":
-        ranking_mode, use_proximity_bonus, query_terms = _parse_find_arguments(args)
+        (
+            ranking_mode,
+            use_proximity_bonus,
+            use_snippets,
+            query_terms,
+        ) = _parse_find_arguments(args)
         if context is None:
             query = " ".join(query_terms)
             return f"Find requested for '{query}'.", False
@@ -234,6 +263,7 @@ def dispatch_command(
             query_terms,
             ranking_mode=ranking_mode,
             proximity_bonus=use_proximity_bonus,
+            include_snippets=use_snippets,
         )
         if not matches:
             suggestions = suggest_query_terms(index, query_terms)

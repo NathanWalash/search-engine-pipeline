@@ -193,6 +193,26 @@ def test_load_rejects_non_string_document_url() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+def test_load_rejects_non_string_document_text() -> None:
+    temp_dir = _make_local_tmp_dir()
+    try:
+        invalid = temp_dir / "index.json"
+        invalid.write_text(
+            json.dumps(
+                {
+                    "meta": {"page_count": 1, "token_count": 1},
+                    "documents": {"doc1": {"url": "https://quotes.toscrape.com/", "length": 1, "text": 123}},
+                    "terms": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(StorageError, match="text must be a string"):
+            load_index(path=invalid)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 def test_load_rejects_non_object_term_payload() -> None:
     temp_dir = _make_local_tmp_dir()
     try:

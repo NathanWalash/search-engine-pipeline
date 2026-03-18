@@ -61,6 +61,7 @@ def test_meta_and_document_statistics_are_updated() -> None:
     assert index.meta["token_count"] == 3
     assert index.documents["doc1"].url == "https://quotes.toscrape.com/page/1/"
     assert index.documents["doc1"].length == 3
+    assert index.documents["doc1"].text == ""
 
 
 def test_add_document_terms_infers_positions() -> None:
@@ -105,7 +106,20 @@ def test_to_dict_serialises_index_structure() -> None:
     assert serialised["documents"]["doc1"] == {
         "url": "https://quotes.toscrape.com/page/1/",
         "length": 3,
+        "text": "",
     }
     assert serialised["terms"]["friend"]["document_frequency"] == 1
     assert serialised["terms"]["friend"]["postings"]["doc1"]["term_frequency"] == 2
     assert serialised["terms"]["friend"]["postings"]["doc1"]["positions"] == [0, 1]
+
+
+def test_add_document_terms_stores_optional_document_text() -> None:
+    index = create_inverted_index()
+    index.add_document_terms(
+        document_id="doc1",
+        url="https://quotes.toscrape.com/page/1/",
+        tokens=["friend", "truth"],
+        text="Friend truth.",
+    )
+
+    assert index.documents["doc1"].text == "Friend truth."

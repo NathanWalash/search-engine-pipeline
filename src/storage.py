@@ -45,6 +45,8 @@ def _validate_payload(raw_data: Any) -> dict[str, Any]:
             )
         if not isinstance(document_raw["url"], str):
             raise StorageError(f"Document '{document_id}' url must be a string")
+        if "text" in document_raw and not isinstance(document_raw["text"], str):
+            raise StorageError(f"Document '{document_id}' text must be a string")
         _require_int(document_raw["length"], field_name=f"documents.{document_id}.length")
 
     for term, term_raw in raw_data["terms"].items():

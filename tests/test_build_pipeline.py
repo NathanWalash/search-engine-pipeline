@@ -23,6 +23,7 @@ def test_index_crawled_pages_builds_index_from_html() -> None:
 
     assert serialised["meta"]["page_count"] == 2
     assert serialised["documents"]["doc1"]["url"] == "https://quotes.toscrape.com/page/1/"
+    assert "Good friends make good times" in serialised["documents"]["doc1"]["text"]
     assert serialised["terms"]["good"]["document_frequency"] == 1
     assert serialised["terms"]["good"]["postings"]["doc1"]["term_frequency"] == 2
     assert serialised["terms"]["truth"]["document_frequency"] == 1
