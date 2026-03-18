@@ -17,6 +17,7 @@ Last updated: 2026-03-18
 9. Feature H - proximity-aware ranking bonus - complete
 10. Feature F - result snippets with matched-term highlighting - complete
 11. Feature J - benchmarking and complexity/performance summary - complete
+12. Feature K - incremental reindex performance engine - complete
 
 ## Advanced Features Completed
 
@@ -90,6 +91,14 @@ Last updated: 2026-03-18
 - `benchmark [--runs N]` CLI command outputs timing report and corpus/index stats
 - tests cover benchmark metrics, formatting, and CLI behavior
 
+### Feature K - Incremental Reindex Performance Engine
+
+- `build` now supports `--incremental` mode for reusing unchanged documents
+- document `content_hash` tracking added so unchanged pages skip reparse/reindex work
+- incremental build summary now reports: reused, reindexed, and new document counts
+- benchmark output now includes incremental reuse timing and speedup ratio
+- tests cover incremental indexing, CLI flag parsing, and benchmark formatting
+
 ## Next Planned Feature Queue
 
 Advanced feature queue complete.
@@ -110,7 +119,7 @@ Status: complete (2026-03-18)
 - phrase, suggestion, and snippet tests
 - coverage reporting in CI with stable thresholds
 - automated pipeline runs lint, type checks, tests, and coverage on PRs
-- final quality snapshot: 179 tests passing, 99.37% total coverage
+- final quality snapshot: 186 tests passing, 99.16% total coverage
 - benchmark evidence captured in `docs/BENCHMARK_RESULTS.md`
 
 ### 2. Publication-quality code
