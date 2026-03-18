@@ -35,6 +35,8 @@ Roadmap planning docs are split into:
 - `docs/ADVANCED_ROADMAP.md`
 - `docs/SUBMISSION_CHECKLIST.md`
 - `docs/RELEASE_PLAN.md`
+- `docs/BENCHMARK_RESULTS.md`
+- `docs/GIT_WORKFLOW_EVIDENCE.md`
 
 Quality snapshot (2026-03-18):
 
@@ -217,8 +219,10 @@ For final submission:
 5. generate fresh index artifact by running CLI `build`,
 6. run benchmark evidence via `benchmark --runs 5` (or more for stable numbers),
 7. prepare milestone tags and GitHub release notes from `docs/RELEASE_PLAN.md`,
-8. verify references/citations are present in README/docs,
-9. verify the full checklist in `docs/SUBMISSION_CHECKLIST.md`.
+8. store a benchmark snapshot in `docs/BENCHMARK_RESULTS.md`,
+9. verify references/citations are present in README/docs,
+10. verify Git traceability notes in `docs/GIT_WORKFLOW_EVIDENCE.md`,
+11. verify the full checklist in `docs/SUBMISSION_CHECKLIST.md`.
 
 ## Architecture
 
@@ -281,6 +285,9 @@ search-engine-pipeline/
     ROADMAP.md
     CORE_ROADMAP.md
     ADVANCED_ROADMAP.md
+    RELEASE_PLAN.md
+    BENCHMARK_RESULTS.md
+    GIT_WORKFLOW_EVIDENCE.md
     SUBMISSION_CHECKLIST.md
     SPECIFICATION.md
   .github/workflows/ci.yml

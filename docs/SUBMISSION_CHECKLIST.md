@@ -42,6 +42,7 @@ Submission rule:
   - TF-IDF and BM25 query timings
   - phrase/proximity query timings
   - corpus stats and index size
+- store final benchmark snapshot in `docs/BENCHMARK_RESULTS.md`
 
 ## 5. Demo Walkthrough Readiness
 
@@ -67,12 +68,14 @@ Submission rule:
 ## 7. Git Tags and Release Evidence
 
 - create annotated milestone tags (see `docs/RELEASE_PLAN.md`)
+- create phase-level tags (core/advanced) for roadmap traceability
 - push tags to GitHub (`git push origin --tags`)
 - create GitHub releases from milestone tags with short notes:
   - included features
   - test/coverage snapshot
   - benchmark snapshot
 - capture release URLs (or screenshots) for demo/report evidence
+- keep branch/PR/tag mapping in `docs/GIT_WORKFLOW_EVIDENCE.md`
 
 ## 8. Referencing and Research Evidence
 
