@@ -15,6 +15,7 @@ from src.ranking import (
 
 RankingMode = Literal["tfidf", "bm25"]
 SUPPORTED_RANKING_MODES: set[RankingMode] = {"tfidf", "bm25"}
+SNIPPET_WINDOW_TOKENS = 16
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,7 @@ class QueryMatchView:
     url: str
     term_frequencies: dict[str, int]
     relevance_score: float
+    snippet: str = ""
 
 
 @dataclass(frozen=True)
@@ -234,6 +236,62 @@ def _intersect_term_document_ids(
     return matching_document_ids or set()
 
 
+def _token_matches_highlight(
+    token: str,
+    *,
+    highlight_terms: set[str],
+) -> bool:
+    """Return whether token or any hyphen part should be highlighted."""
+    if token in highlight_terms:
+        return True
+    if "-" not in token:
+        return False
+    return any(part in highlight_terms for part in token.split("-") if part)
+
+
+def _build_result_snippet(
+    document_text: str,
+    *,
+    highlight_terms: Sequence[str],
+    window_tokens: int = SNIPPET_WINDOW_TOKENS,
+) -> str:
+    """Return a short deterministic snippet with matched-term highlighting."""
+    if not document_text.strip():
+        return ""
+
+    tokens = tokenize(document_text, expand_hyphenated=False)
+    if not tokens:
+        return ""
+
+    highlight_set = {term.lower() for term in highlight_terms if term}
+    match_indexes = [
+        index
+        for index, token in enumerate(tokens)
+        if _token_matches_highlight(token, highlight_terms=highlight_set)
+    ]
+
+    window_size = max(1, window_tokens)
+    focus_index = match_indexes[0] if match_indexes else 0
+    start = max(0, focus_index - (window_size // 3))
+    end = min(len(tokens), start + window_size)
+    if end - start < window_size:
+        start = max(0, end - window_size)
+
+    rendered_tokens: list[str] = []
+    for token in tokens[start:end]:
+        if _token_matches_highlight(token, highlight_terms=highlight_set):
+            rendered_tokens.append(f"[{token}]")
+            continue
+        rendered_tokens.append(token)
+
+    snippet = " ".join(rendered_tokens)
+    if start > 0:
+        snippet = f"... {snippet}"
+    if end < len(tokens):
+        snippet = f"{snippet} ..."
+    return snippet
+
+
 def _score_document_by_mode(
     index: InvertedIndex,
     *,
@@ -387,6 +445,7 @@ def find_and_match_documents(
     *,
     ranking_mode: RankingMode = "tfidf",
     proximity_bonus: bool = False,
+    include_snippets: bool = False,
 ) -> list[QueryMatchView]:
     """Return documents that satisfy AND terms and optional quoted phrases."""
     if ranking_mode not in SUPPORTED_RANKING_MODES:
@@ -442,6 +501,12 @@ def find_and_match_documents(
             if posting is None:
                 continue
             term_frequencies[term] = posting.term_frequency
+        snippet = ""
+        if include_snippets:
+            snippet = _build_result_snippet(
+                document.text,
+                highlight_terms=parsed_query.scoring_terms,
+            )
 
         matches.append(
             QueryMatchView(
@@ -455,6 +520,7 @@ def find_and_match_documents(
                     ranking_mode=ranking_mode,
                     proximity_bonus=proximity_bonus,
                 ),
+                snippet=snippet,
             )
         )
 
@@ -481,5 +547,7 @@ def format_find_results(query_terms: Sequence[str], matches: Sequence[QueryMatch
                 f"score={match.relevance_score:.4f} | {term_stats}"
             )
         )
+        if match.snippet:
+            lines[-1] = f"{lines[-1]} | snippet={match.snippet}"
 
     return "\n".join(lines)

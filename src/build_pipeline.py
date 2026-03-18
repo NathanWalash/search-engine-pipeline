@@ -51,6 +51,7 @@ def index_crawled_pages(pages: Sequence[CrawledPage]) -> InvertedIndex:
             document_id=document_id,
             url=page.url,
             token_positions=parsed.token_positions,
+            text=parsed.text,
         )
     return index
 
