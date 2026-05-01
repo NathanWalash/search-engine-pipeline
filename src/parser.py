@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 import re
 
+# Matches a base alphanumeric token optionally followed by an apostrophe or
+# hyphen and more alphanumerics, so "don't" and "well-known" are kept intact.
 BASE_TOKEN_PATTERN = re.compile(r"[a-z0-9]+(?:['-][a-z0-9]+)*")
 TokenPosition = tuple[str, int]
 
@@ -23,6 +25,7 @@ class _TextExtractor(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self._parts: list[str] = []
+        # Counter rather than bool so nested script/style tags are handled correctly.
         self._ignore_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -54,6 +57,7 @@ def _extract_text_with_stdlib(html: str) -> str:
 def extract_text(html: str) -> str:
     """Extract visible text content from raw HTML."""
     try:
+        # Lazy import keeps BeautifulSoup optional; stdlib fallback used if absent.
         from bs4 import BeautifulSoup
     except ModuleNotFoundError:
         return _extract_text_with_stdlib(html)
@@ -76,6 +80,8 @@ def _expand_token(base_token: str, *, expand_hyphenated: bool) -> list[str]:
     if not expand_hyphenated or "-" not in base_token:
         return emitted
 
+    # "preserve + split" strategy: index "well-known" AND "well"/"known" separately
+    # so queries using any of the three forms can still match the document.
     emitted.extend(part for part in base_token.split("-") if part)
     return emitted
 
@@ -96,6 +102,8 @@ def tokenize_with_positions(
             expand_hyphenated=expand_hyphenated,
         )
         for token in expanded_tokens:
+            # All expanded forms of a hyphenated token share the same base position
+            # so phrase matching treats them as occupying the same slot.
             token_positions.append((token, base_position))
     return token_positions
 

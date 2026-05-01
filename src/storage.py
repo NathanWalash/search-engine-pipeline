@@ -21,6 +21,8 @@ def _require_int(value: Any, *, field_name: str) -> int:
 
 
 def _validate_payload(raw_data: Any) -> dict[str, Any]:
+    # Structural validation before deserialisation so failures produce
+    # actionable StorageError messages rather than bare KeyError/TypeError.
     if not isinstance(raw_data, dict):
         raise StorageError("Index file must contain a JSON object")
 
@@ -104,9 +106,11 @@ def save_index(
     if target.exists() and target.is_dir():
         raise StorageError(f"Index path is a directory: {target}")
 
+    # Creates data/ automatically if it doesn't exist yet (e.g. fresh clone).
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
         target.write_text(
+            # sort_keys produces deterministic output, making index files diff-friendly.
             json.dumps(index.to_dict(), indent=2, sort_keys=True),
             encoding="utf-8",
         )

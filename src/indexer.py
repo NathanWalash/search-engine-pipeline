@@ -29,6 +29,7 @@ class TermRecord:
     """Term-level metadata and postings list."""
 
     document_frequency: int = 0
+    # Keyed by document_id (not URL) for O(1) lookup during scoring and intersection.
     postings: dict[str, PostingRecord] = field(default_factory=dict)
 
 
@@ -100,6 +101,8 @@ class InvertedIndex:
                 term_frequency=len(positions),
                 positions=list(positions),
             )
+            # Recomputed from postings length on every insert to stay accurate
+            # without needing a separate increment/decrement path.
             term_record.document_frequency = len(term_record.postings)
 
     def add_document_terms(
@@ -135,7 +138,8 @@ class InvertedIndex:
                         "text": record.text,
                         "content_hash": record.content_hash,
                     }
-                    if record.content_hash
+                    # Omit content_hash for documents that predate incremental indexing.
+                if record.content_hash
                     else {
                         "url": record.url,
                         "length": record.length,
@@ -186,6 +190,8 @@ class InvertedIndex:
                     positions=[int(position) for position in posting_raw.get("positions", [])],
                 )
 
+            # Fall back to len(postings) so older index files without an explicit
+            # document_frequency field still load correctly.
             document_frequency = int(term_raw.get("document_frequency", len(postings)))
             index.terms[term] = TermRecord(
                 document_frequency=document_frequency,

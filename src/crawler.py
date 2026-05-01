@@ -206,6 +206,8 @@ def _crawl_site_bfs_internal(
     progress = progress_callback or (lambda message: None)
     queue: deque[str] = deque([start_url])
     visited: set[str] = set()
+    # 'scheduled' tracks URLs already added to the queue, preventing duplicates
+    # before they have been visited. 'visited' prevents re-processing after fetch.
     scheduled: set[str] = {start_url}
     crawled_pages: list[CrawledPage] = []
     pages_failed = 0
