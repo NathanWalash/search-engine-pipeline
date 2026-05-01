@@ -32,8 +32,8 @@ Record the final snapshot for report/demo notes:
 
 Submission rule:
 
-- `data/index.json` is generated during development and git-ignored
-- generate a fresh copy at submission time, then include it only if required by the brief
+- `data/index.json` is committed to the repository for submission
+- generate a fresh copy and commit it to ensure the index reflects the final crawl
 
 ## 4. Benchmark Evidence
 
