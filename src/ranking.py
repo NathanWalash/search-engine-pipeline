@@ -5,6 +5,8 @@ from typing import Sequence
 
 from src.indexer import InvertedIndex
 
+# 0.35 caps the bonus at a 35% score uplift, keeping proximity as a tiebreaker
+# rather than overriding term-frequency relevance for strongly matching documents.
 PROXIMITY_BONUS_WEIGHT = 0.35
 
 
@@ -18,6 +20,8 @@ def inverse_document_frequency(
         return 0.0
     if document_frequency < 0:
         return 0.0
+    # +1 additive smoothing prevents zero IDF for terms that appear in every document,
+    # and the trailing +1 keeps the weight positive for common terms.
     return log((total_documents + 1) / (document_frequency + 1)) + 1.0
 
 
@@ -71,8 +75,8 @@ def score_document_bm25(
     *,
     document_id: str,
     query_terms: Sequence[str],
-    k1: float = 1.5,
-    b: float = 0.75,
+    k1: float = 1.5,   # controls term-frequency saturation; standard literature default
+    b: float = 0.75,   # controls document-length normalisation; standard literature default
 ) -> float:
     """Return BM25 score for one matched document."""
     total_documents = max(index.meta.get("page_count", 0), len(index.documents))
@@ -104,6 +108,7 @@ def score_document_bm25(
             document_frequency=term_record.document_frequency,
         )
         tf = posting.term_frequency
+        # BM25 length normalisation: b=1 fully normalises by doc length, b=0 ignores it.
         normalization = k1 * (1.0 - b + b * (document_length / average_document_length))
         denominator = tf + normalization
         if denominator <= 0:
@@ -188,6 +193,7 @@ def proximity_signal(
             if distance is None:
                 continue
 
+            # 1/(1+d): distance 0 → score 1.0, decays toward 0 as terms move apart.
             pair_scores.append(1.0 / (1.0 + distance))
 
     if not pair_scores:

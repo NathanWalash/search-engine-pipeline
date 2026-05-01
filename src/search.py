@@ -213,6 +213,8 @@ def _order_terms_by_document_frequency(
     term_records: Mapping[str, TermRecord],
 ) -> list[str]:
     """Order query terms for AND intersection by ascending document frequency."""
+    # Rarest terms first so the AND intersection shrinks the candidate set as
+    # early as possible, short-circuiting on empty results before scanning common terms.
     return sorted(
         term_records,
         key=lambda term: (term_records[term].document_frequency, term),
@@ -348,6 +350,8 @@ def _document_contains_phrase(
 
     first_positions = position_sets[0]
     for start_position in first_positions:
+        # Phrase match: each subsequent token must appear at exactly start+offset
+        # in the document, confirming the tokens are contiguous in order.
         if all(
             (start_position + offset) in position_sets[offset]
             for offset in range(1, len(position_sets))

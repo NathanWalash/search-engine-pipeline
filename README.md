@@ -1,329 +1,316 @@
 # Search Engine Pipeline
 
-Coursework project for building a command-line search engine over `https://quotes.toscrape.com/`.
+> A command-line search engine that crawls, indexes, and queries [`quotes.toscrape.com`](https://quotes.toscrape.com/) — COMP3011 Coursework 2.
+
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Tests](https://img.shields.io/badge/tests-186%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-99%25-brightgreen)
+![Type checked](https://img.shields.io/badge/type--checked-mypy%20strict-blue)
+
+---
 
 ## Overview
 
-The tool crawls pages from the target website, builds an inverted index, stores the index on disk, and lets you query it from a command-line shell.
+The tool crawls every page of the target website using a polite BFS crawler, builds an inverted index storing word frequencies and positions, persists the index to disk, and exposes a command-line shell for querying it.
 
-## Status
+**Core commands:** `build` · `load` · `print` · `find`
 
-Core roadmap phases (1-10) are implemented, including:
+**Advanced features:** TF-IDF ranking · BM25 ranking · proximity bonus · result snippets · phrase search · query suggestions · incremental reindex · benchmarking
 
-- crawl/build pipeline
-- index save/load
-- `print` and `find` query commands
-- integration and edge-case tests
-- CI checks for lint, type-checking, and coverage-gated tests
+---
 
-Implemented advanced features:
+## Quick Start
 
-- TF-IDF result ranking
-- BM25 ranking mode (`find --rank bm25`)
-- proximity-aware ranking bonus (`find --proximity-bonus on`)
-- result snippets with matched-term highlighting (`find --snippets on`)
-- benchmarking summary (`benchmark --runs N`)
-- incremental reindex mode (`build --incremental`)
-- quoted phrase search
-- query suggestions (`Did you mean`)
-- crawl statistics reporting
-- smarter tokenisation for apostrophes and hyphenated words
-- posting-list optimisation for multi-term AND queries
+```bash
+# Install dependencies
+python -m pip install -r requirements.txt
 
-Roadmap planning docs are split into:
+# Launch the shell
+python -m src.main
+```
 
-- `docs/CORE_ROADMAP.md`
-- `docs/ADVANCED_ROADMAP.md`
-- `docs/SUBMISSION_CHECKLIST.md`
-- `docs/RELEASE_PLAN.md`
-- `docs/BENCHMARK_RESULTS.md`
-- `docs/GIT_WORKFLOW_EVIDENCE.md`
+```text
+Search Engine CLI
+Type 'help' for available commands.
+search> build
+search> find good friends
+search> print indifference
+search> exit
+```
 
-Quality snapshot (2026-03-18):
-
-- tests: `186` passing
-- total coverage: `99.16%`
-- CI gates: `ruff`, `mypy`, and `pytest` all passing
+---
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.11 or 3.12
-- pip
-
-### Setup
+**Requirements:** Python 3.11 or 3.12, pip
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-## Running the CLI
+**Dependencies:**
 
-```bash
-python -m src.main
-```
+| Package | Purpose |
+|---|---|
+| `requests` | HTTP fetching |
+| `beautifulsoup4` | HTML parsing |
+| `pytest` / `pytest-cov` | Test runner and coverage |
+| `ruff` | Linting |
+| `mypy` | Static type checking |
 
-You will see the interactive prompt:
+---
 
-```text
-search>
-```
-
-## Command Usage
-
-- `build [--incremental]`
-- `load`
-- `benchmark [--runs N]`
-- `print <word>`
-- `find [--rank tfidf|bm25] [--proximity-bonus on|off] [--snippets on|off] <query>`
+## Commands
 
 ### `build`
 
-Build the index by crawling the site and save it to `data/index.json`.
+Crawls the site, builds the inverted index, and saves it to `data/index.json`.
+Enforces a **6-second politeness delay** between requests by default.
 
 ```text
 search> build
 search> build --incremental
 ```
 
-By default, the crawler enforces a 6-second politeness delay between requests.
-For local testing only, you can override this before starting the CLI:
+Incremental mode reuses unchanged documents from a previously loaded index,
+only re-parsing pages whose HTML content has changed.
 
-```powershell
-$env:SEARCH_POLITENESS_SECONDS = "1.0"
-python -m src.main
-```
-
-The `build` output includes live crawl progress lines:
-
+Live progress is printed per page:
 ```text
-Build: crawled N page(s) (last: <url>)
+Build: crawled 12 page(s) (last: https://quotes.toscrape.com/page/2/)
 ```
 
-After crawl/indexing, `build` also prints a crawl report summary:
+After completion, a crawl report is shown:
+```text
+Pages crawled: 214  |  Unique terms: 4570  |  Duration: 21.4s
+```
 
-- pages crawled / failed
-- URLs discovered / visited
-- crawl success rate
-- documents reused / reindexed / new
-- unique terms, token count, and duration
+> **Local testing only:** override the delay via environment variable before launching:
+> ```powershell
+> $env:SEARCH_POLITENESS_SECONDS = "1.0"
+> python -m src.main
+> ```
+
+---
 
 ### `load`
 
-Load a previously saved index from `data/index.json`.
+Loads a previously built index from `data/index.json`.
 
 ```text
 search> load
 ```
 
-Submission note: `data/index.json` is treated as a generated artifact and is
-git-ignored during development. For final submission, generate a fresh index
-and include the compiled index file as required by the coursework brief.
+The compiled `data/index.json` is committed to the repository for submission
+as required by the coursework brief.
+
+---
 
 ### `print <word>`
 
-Display one term entry from the inverted index.
+Prints the inverted index entry for a single word: document frequency,
+and per-document term frequency and token positions.
 
 ```text
 search> print good
+search> print indifference
 ```
+
+If the word is not in the index, the closest match is suggested:
+```text
+Word not found in index
+Did you mean: indifferent?
+```
+
+---
+
+### `find <query>`
+
+Runs a case-insensitive AND search. Returns ranked results with URLs and scores.
+
+```text
+search> find indifference
+search> find good friends
+search> find "good friends"
+search> find --rank bm25 good friends
+search> find --proximity-bonus on good friends
+search> find --snippets on good friends
+```
+
+| Flag | Values | Default | Effect |
+|---|---|---|---|
+| `--rank` | `tfidf` \| `bm25` | `tfidf` | Ranking algorithm |
+| `--proximity-bonus` | `on` \| `off` | `off` | Boost results where query terms appear close together |
+| `--snippets` | `on` \| `off` | `off` | Show a context window with matched terms highlighted in `[]` |
+
+Quoted phrases use positional matching — `"good friends"` only matches pages where the words appear consecutively.
+
+If no results are found, spelling suggestions are shown:
+```text
+No matching pages found.
+Did you mean: indifference?
+```
+
+---
 
 ### `benchmark [--runs N]`
 
-Run performance measurements for:
-
-- build/reindex timing
-- incremental-reuse timing and build speedup
-- load timing
-- query timings (TF-IDF, BM25, phrase, proximity)
-- corpus and index-size stats
+Measures build, incremental reindex, load, and query timings over N repeated runs (default: 5).
 
 ```text
 search> benchmark
 search> benchmark --runs 10
 ```
 
-### `find <query>`
+Reports include corpus stats, timing breakdowns, and speedup ratios.
+See [`docs/BENCHMARK_RESULTS.md`](docs/BENCHMARK_RESULTS.md) for a recorded snapshot.
 
-Run case-insensitive AND search across all query terms.
-Matched documents are ranked by TF-IDF by default, or BM25 with `--rank bm25`.
-Optional proximity bonus (`--proximity-bonus on`) boosts documents where
-query terms occur close together.
-Optional snippets (`--snippets on`) include a short context window with
-matched terms highlighted in `[]`.
-Quoted phrases are supported using positional matching.
-Misspelled terms can return a `Did you mean` suggestion.
-Multi-term AND intersections are optimized by processing rarer terms first.
+---
 
-```text
-search> find good friends
-search> find --rank bm25 good friends
-search> find --proximity-bonus on good friends
-search> find --snippets on good friends
-search> find "good friends"
-search> find well-known
-search> find well known
-```
+## Tokenisation
 
-## Tokenisation Rules
+| Rule | Example |
+|---|---|
+| Lowercase all text | `Good` → `good` |
+| Preserve internal apostrophes | `don't` stays `don't` |
+| Preserve hyphenated terms | `well-known` stays `well-known` |
+| Also index split parts | `well-known` also indexes `well`, `known` |
+| Strip leading/trailing punctuation | `"hello"` → `hello` |
 
-Index tokenisation currently applies these rules:
+This **preserve + split** strategy means queries using `well-known`, `well known`,
+or just `known` all match hyphenated content.
 
-- lowercase all text
-- preserve apostrophes inside words (`don't`, `it's`)
-- preserve canonical hyphenated terms (`well-known`)
-- also index split parts of hyphenated terms (`well`, `known`)
-- strip leading/trailing punctuation
-- ignore empty tokens
-
-Hyphen strategy is `preserve + split`, so queries like `well-known`,
-`well known`, and `known` can all match hyphenated content.
+---
 
 ## Testing
 
-Run the full suite:
-
 ```bash
+# Full suite with coverage
 python -m pytest
-```
 
-Run with concise output:
-
-```bash
+# Concise output
 python -m pytest -q
-```
 
-Run lint checks:
-
-```bash
+# Lint
 python -m ruff check src tests
-```
 
-Run static type checks:
-
-```bash
+# Type checking
 python -m mypy src
 ```
 
-Coverage reporting is configured in `pytest.ini` and includes:
+Coverage is enforced at **95% minimum** via `pytest.ini`. Current coverage: **99.16%** across 186 tests.
 
-- terminal coverage summary
-- `coverage.xml` output for CI artifacts
-- minimum coverage threshold (`--cov-fail-under=95`)
+Test organisation:
 
-## Submission Workflow
+| File | Coverage area |
+|---|---|
+| `test_crawler.py` | Fetch, BFS traversal, politeness, error handling |
+| `test_parser.py` | HTML extraction, tokenisation, hyphen strategy |
+| `test_indexer.py` | Document/term indexing, statistics |
+| `test_storage.py` | JSON save/load, schema validation |
+| `test_search.py` | Term lookup, AND queries, ranking, phrases, snippets |
+| `test_ranking.py` | TF-IDF, BM25, proximity signal |
+| `test_build_pipeline.py` | Full pipeline, incremental reindex |
+| `test_integration_workflow.py` | End-to-end CLI workflow |
+| `test_cli_shell.py` | Command parsing, dispatch, error handling |
+| `test_benchmarking.py` | Benchmark metrics and formatting |
+| `test_edge_cases.py` | Empty queries, missing index, malformed input |
 
-For final submission:
-
-1. pull latest `main`,
-2. run `python -m ruff check src tests`,
-3. run `python -m mypy src`,
-4. run `python -m pytest -q`,
-5. generate fresh index artifact by running CLI `build`,
-6. run `build --incremental` to validate reuse-path behaviour,
-7. run benchmark evidence via `benchmark --runs 5` (or more for stable numbers),
-8. prepare milestone tags and GitHub release notes from `docs/RELEASE_PLAN.md`,
-9. store a benchmark snapshot in `docs/BENCHMARK_RESULTS.md`,
-10. verify references/citations are present in README/docs,
-11. verify Git traceability notes in `docs/GIT_WORKFLOW_EVIDENCE.md`,
-12. verify the full checklist in `docs/SUBMISSION_CHECKLIST.md`.
+---
 
 ## Architecture
 
-The core processing flow is:
-
 ```text
-crawl -> parse -> index -> store -> search
+build command
+  └─ crawler.py       BFS crawl with 6s politeness window
+  └─ parser.py        HTML → text → tokens + positions
+  └─ indexer.py       Inverted index (term → {doc → {tf, positions}})
+  └─ storage.py       JSON serialisation / deserialisation
+
+find command
+  └─ search.py        AND intersection, phrase matching, snippets
+  └─ ranking.py       TF-IDF / BM25 scoring, proximity bonus
 ```
 
-Module responsibilities:
+**Key data structure:** the inverted index maps each term to a `TermRecord`
+containing document frequency and a postings dict keyed by `document_id`
+for O(1) lookup during scoring. Each posting stores term frequency and a
+list of token positions enabling phrase matching.
 
-- `src/benchmarking.py`: benchmark harness and report formatting
-- `src/crawler.py`: HTTP fetching, politeness delay, internal-link BFS crawl
-- `src/parser.py`: HTML text extraction, tokenization, token positions
-- `src/indexer.py`: inverted index data model and document/term statistics
-- `src/build_pipeline.py`: crawl+parse+index orchestration
-- `src/storage.py`: JSON save/load with validation
-- `src/search.py`: `print`/`find` query logic and output formatting
-- `src/main.py`: interactive CLI command dispatch
+**AND intersection optimisation:** query terms are sorted by ascending
+document frequency before intersection — rarest terms first — so the
+candidate set shrinks as early as possible, short-circuiting before
+common terms are processed.
 
-## Research and References
+---
 
-The advanced ranking/query design choices are grounded in standard IR sources:
+## Research References
 
-- Robertson, S., and Zaragoza, H. (2009). *The Probabilistic Relevance Framework: BM25 and Beyond*. DOI: https://doi.org/10.1561/1500000019
-- Robertson, S. E., Walker, S., Jones, S., Hancock-Beaulieu, M., and Gatford, M. (1994). *Okapi at TREC-3*. TREC proceedings: https://pages.nist.gov/trec-browser/trec3/proceedings
-- Manning, C. D., Raghavan, P., and Schutze, H. (2008). *Introduction to Information Retrieval* (TF-IDF weighting): https://nlp.stanford.edu/IR-book/html/htmledition/tf-idf-weighting-1.html
-- Manning, C. D., Raghavan, P., and Schutze, H. (2008). *Introduction to Information Retrieval* (Boolean query intersection ordering): https://nlp.stanford.edu/IR-book/html/htmledition/processing-boolean-queries-1.html
-- Manning, C. D., Raghavan, P., and Schutze, H. (2008). *Introduction to Information Retrieval* (Positional indexes and phrase queries): https://nlp.stanford.edu/IR-book/html/htmledition/positional-indexes-1.html
+Ranking and query processing design is grounded in standard IR literature:
+
+- Robertson, S. and Zaragoza, H. (2009). *The Probabilistic Relevance Framework: BM25 and Beyond.* https://doi.org/10.1561/1500000019
+- Robertson, S. E. et al. (1994). *Okapi at TREC-3.* https://pages.nist.gov/trec-browser/trec3/proceedings
+- Manning, C. D., Raghavan, P. and Schütze, H. (2008). *Introduction to Information Retrieval* — TF-IDF: https://nlp.stanford.edu/IR-book/html/htmledition/tf-idf-weighting-1.html
+- Manning et al. (2008). *Introduction to Information Retrieval* — Boolean intersection ordering: https://nlp.stanford.edu/IR-book/html/htmledition/processing-boolean-queries-1.html
+- Manning et al. (2008). *Introduction to Information Retrieval* — Positional indexes and phrase queries: https://nlp.stanford.edu/IR-book/html/htmledition/positional-indexes-1.html
+
+---
 
 ## Project Layout
 
-```text
-search-engine-pipeline/
-  src/
-    benchmarking.py
-    build_pipeline.py
-    crawler.py
-    indexer.py
-    main.py
-    parser.py
-    ranking.py
-    search.py
-    storage.py
-  tests/
-    test_benchmarking.py
-    test_build_pipeline.py
-    test_cli_shell.py
-    test_crawler.py
-    test_edge_cases.py
-    test_indexer.py
-    test_integration_workflow.py
-    test_parser.py
-    test_ranking.py
-    test_scaffold.py
-    test_search.py
-    test_storage.py
-  data/
-  docs/
-    ROADMAP.md
-    CORE_ROADMAP.md
-    ADVANCED_ROADMAP.md
-    RELEASE_PLAN.md
-    BENCHMARK_RESULTS.md
-    GIT_WORKFLOW_EVIDENCE.md
-    SUBMISSION_CHECKLIST.md
-    SPECIFICATION.md
-  .github/workflows/ci.yml
-  README.md
-  requirements.txt
 ```
+search-engine-pipeline/
+├── src/
+│   ├── main.py              CLI shell and command dispatch
+│   ├── crawler.py           HTTP fetching, politeness, BFS traversal
+│   ├── parser.py            HTML text extraction and tokenisation
+│   ├── indexer.py           Inverted index data structures
+│   ├── build_pipeline.py    Crawl → parse → index orchestration
+│   ├── storage.py           JSON save/load with schema validation
+│   ├── search.py            print/find query logic and output
+│   ├── ranking.py           TF-IDF, BM25, proximity scoring
+│   └── benchmarking.py      Performance measurement harness
+├── tests/                   186 tests, 99.16% coverage
+├── data/
+│   └── index.json           Compiled index (committed for submission)
+├── docs/
+│   ├── SPECIFICATION.md
+│   ├── CORE_ROADMAP.md
+│   ├── ADVANCED_ROADMAP.md
+│   ├── BENCHMARK_RESULTS.md
+│   ├── RELEASE_PLAN.md
+│   ├── GIT_WORKFLOW_EVIDENCE.md
+│   └── SUBMISSION_CHECKLIST.md
+├── .github/workflows/ci.yml  CI: lint → typecheck → tests
+├── requirements.txt
+└── README.md
+```
+
+---
 
 ## Demo Checklist
 
-Use this as a pre-recording checklist for the 5-minute demo.
+- [ ] `build` — confirm crawl progress and index save path
+- [ ] `load` — confirm index loads from `data/index.json`
+- [ ] `print <word>` — existing term and missing term (suggestion shown)
+- [ ] `find <single term>` — basic result list
+- [ ] `find <multi-term>` — AND semantics demonstrated
+- [ ] `find "<phrase>"` — quoted phrase search
+- [ ] `find --rank bm25` — ranking mode switch
+- [ ] `find --proximity-bonus on` — proximity bonus
+- [ ] `find --snippets on` — context snippets
+- [ ] Empty `find` — graceful error
+- [ ] `benchmark --runs 3` — timing output
+- [ ] `python -m pytest -q` — test suite passing
+- [ ] Git log — incremental branch-based development history
 
-- Show `build` running and confirm index save path
-- Show `load` running against the saved index file
-- Show `print <word>` for:
-  - an existing term
-  - a missing term
-- Show `find <query>` for:
-  - a single term query
-  - a multi-term AND query
-- Show an edge case:
-  - empty `find`
-  - missing index file for `load`
-- Show `benchmark` output (`benchmark --runs 3`)
-- Run the test suite in terminal (`python -m pytest -q`)
-- Show commit history for incremental branch-based development
+---
 
-## GenAI Usage Notes (Scaffold)
+## GenAI Usage Notes
 
-Fill this before recording so the reflection section stays specific and concise.
+Fill this before recording so the reflection stays specific and concise.
 
-```text
+```
 GenAI tools used:
 - Tool:
 - Purpose:

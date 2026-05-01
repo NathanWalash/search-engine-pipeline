@@ -65,6 +65,7 @@ _DOC_ID_PATTERN = re.compile(r"^doc(\d+)$")
 
 def _hash_page_html(html: str) -> str:
     """Return a deterministic content hash for one crawled page body."""
+    # SHA-1 chosen for speed; this is change-detection, not a security context.
     return hashlib.sha1(html.encode("utf-8")).hexdigest()
 
 
@@ -143,6 +144,8 @@ def index_crawled_pages_incremental(
     }
     postings_by_document = _collect_postings_by_document(existing_index)
 
+    # Continue numbering from the highest existing doc ID so new pages never
+    # collide with IDs already assigned in the previous index.
     next_document_number = max(
         (_document_number(document_id) for document_id in existing_index.documents),
         default=0,
